@@ -1,0 +1,23 @@
+version: 0.1
+log:
+  level: debug
+  fields:
+    service: disco
+    environment: development
+storage:
+  ipfs:
+    gatewayurl: https://ipfs.infura.io
+  delete:
+    enabled: true
+  maintenance:
+    uploadpurging:
+      enabled: false
+http:
+  addr: :5000
+  debug:
+    addr: :5001
+    prometheus:
+      enabled: true
+      path: /metrics
+  headers:
+    X-Content-Type-Options: [nosniff]
