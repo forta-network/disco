@@ -23,8 +23,8 @@ func init() {
 
 // driver is the concrete IPFS driver implementation.
 type driver struct {
-	gatewayURL string
-	api        *ipfsapi.Shell
+	ipfsURL string
+	api     *ipfsapi.Shell
 }
 
 type driverFactory struct{}
@@ -40,18 +40,18 @@ type Driver struct {
 
 // FromParameters constructs a new driver using given parameters.
 // Required parameters:
-// - gatewayurl
+// - url
 func FromParameters(parameters map[string]interface{}) (*Driver, error) {
-	gatewayURL, ok := parameters["url"]
+	ipfsURL, ok := parameters["url"]
 	if !ok {
-		return nil, errors.New("no gateway URL specified")
+		return nil, errors.New("no IPFS URL specified")
 	}
-	api := ipfsapi.NewShellWithClient(gatewayURL.(string), http.DefaultClient)
+	api := ipfsapi.NewShellWithClient(ipfsURL.(string), http.DefaultClient)
 	return &Driver{
 		Base: base.Base{
 			StorageDriver: &driver{
-				gatewayURL: gatewayURL.(string),
-				api:        api,
+				ipfsURL: ipfsURL.(string),
+				api:     api,
 			},
 		},
 	}, nil
