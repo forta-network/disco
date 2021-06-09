@@ -38,6 +38,6 @@ func init() {
 	// Following the original naming convention in https://github.com/distribution/distribution.
 	ipfsConfig := DistributionConfig.Storage["ipfs"]
 	if len(Vars.IPFSGatewayURL) > 0 {
-		ipfsConfig["gatewayurl"] = Vars.IPFSGatewayURL
+		ipfsConfig["url"] = Vars.IPFSGatewayURL
 	}
 }
