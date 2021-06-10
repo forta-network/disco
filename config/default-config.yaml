@@ -6,7 +6,7 @@ log:
     environment: development
 storage:
   ipfs:
-    gatewayurl: https://ipfs.infura.io
+    url: http://localhost:5001
   delete:
     enabled: true
   maintenance:
@@ -15,7 +15,7 @@ storage:
 http:
   addr: :5000
   debug:
-    addr: :5001
+    addr: :5050
     prometheus:
       enabled: true
       path: /metrics

@@ -12,7 +12,7 @@ The project is at the PoC & discussion phase.
 
 ## Features
 
-- [ ] Using IPFS as the storage (IPFS driver implementation)
+- [x] Using IPFS as the storage (IPFS driver implementation)
 - [ ] Decentralized access control (via an Ethereum smart contract)
 
 ## FAQ
@@ -25,7 +25,7 @@ This is for addressing the concern about the centralized Docker Hub. The goal is
 
 There are two main parameters:
 
-- IPFS gateway address
+- IPFS API URL
 - Access control smart contract address
 
 Anyone who uses the same parameters and runs the server anywhere should be interacting with the same registry. If either of the parameters are different than other users' parameters (e.g. private IPFS, different contract), then the registry is a different one.
