@@ -15,5 +15,5 @@ RUN set -ex \
 COPY --from=build /disco /disco
 ENV REGISTRY_CONFIGURATION_PATH /disco/config.yaml
 
-EXPOSE 5000
+EXPOSE 1970
 ENTRYPOINT ["/disco/disco"]

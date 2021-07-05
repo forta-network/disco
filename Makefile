@@ -10,5 +10,6 @@ docker-build:
 
 .PHONY: docker-run
 docker-run: docker-build
+	@docker container rm disco
 #	Use host network so we can connect to the IPFS API at localhost:5001
-	@docker run -d --network host openzeppelin/disco
+	@docker run --network host --name disco openzeppelin/disco

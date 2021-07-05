@@ -8,6 +8,7 @@ import (
 
 	"github.com/OpenZeppelin/disco/config"
 	_ "github.com/OpenZeppelin/disco/drivers/ipfs"
+	"github.com/OpenZeppelin/disco/proxy"
 )
 
 func main() {
@@ -15,5 +16,8 @@ func main() {
 	if err != nil {
 		log.Panicf("failed to initialize the registry: %v", err)
 	}
-	registry.ListenAndServe()
+	go registry.ListenAndServe()
+	if err := proxy.ListenAndServe(); err != nil {
+		log.Printf("proxy stopped: %v", err)
+	}
 }

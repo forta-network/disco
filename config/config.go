@@ -11,6 +11,7 @@ import (
 type envVars struct {
 	RegistryConfigurationPath string `envconfig:"registry_configuration_path" default:"./config/default-config.yaml"`
 	IPFSURL                   string `envconfig:"ipfs_url"`
+	DiscoPort                 int    `envconfig:"disco_port" default:"1970"`
 }
 
 // Configuration variables
