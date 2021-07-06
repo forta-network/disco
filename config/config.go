@@ -21,7 +21,7 @@ var (
 )
 
 // Init parses and prepares all config variables.
-func init() {
+func Init() {
 	envconfig.MustProcess("", &Vars)
 
 	file, err := os.Open(Vars.RegistryConfigurationPath)

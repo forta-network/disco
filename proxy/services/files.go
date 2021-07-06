@@ -53,7 +53,7 @@ func (disco *Disco) getBlobCid(ctx context.Context, digest string) (string, erro
 	return disco.getCid(ctx, makeBlobPath(digest))
 }
 
-func (disco *Disco) populateBlobsDigests(ctx context.Context, manifestDigest string) (map[string]string, error) {
+func (disco *Disco) populateBlobsDigests(ctx context.Context, manifestDigest string) ([]*blobCid, error) {
 	manifest, err := disco.readManifestWithDigest(ctx, manifestDigest)
 	if err != nil {
 		return nil, err
@@ -69,9 +69,15 @@ func (disco *Disco) populateBlobsDigests(ctx context.Context, manifestDigest str
 		return nil, err
 	}
 
-	blobs := map[string]string{
-		manifestDigest: manifestCid,
-		configDigest:   configCid,
+	blobs := []*blobCid{
+		{
+			Digest: manifestDigest,
+			Cid:    manifestCid,
+		},
+		{
+			Digest: configDigest,
+			Cid:    configCid,
+		},
 	}
 	for _, layer := range manifest.Layers {
 		layerDigest := layer.Digest[7:]
@@ -79,13 +85,21 @@ func (disco *Disco) populateBlobsDigests(ctx context.Context, manifestDigest str
 		if err != nil {
 			return nil, err
 		}
-		blobs[layerDigest] = layerCid
+		blobs = append(blobs, &blobCid{
+			Digest: layerDigest,
+			Cid:    layerCid,
+		})
 	}
 	return blobs, nil
 }
 
+type blobCid struct {
+	Digest string `json:"digest"`
+	Cid    string `json:"cid"`
+}
+
 type discoFile struct {
-	Blobs map[string]string `json:"blobs"`
+	Blobs []*blobCid `json:"blobs"`
 }
 
 func (disco *Disco) writeDiscoFile(ctx context.Context, repoName string, discoFile *discoFile) error {

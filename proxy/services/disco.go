@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -13,10 +14,20 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
+// IPFSClient makes requests to an IPFS node.
+type IPFSClient interface {
+	FilesRead(ctx context.Context, path string, options ...ipfsapi.FilesOpt) (io.ReadCloser, error)
+	FilesWrite(ctx context.Context, path string, data io.Reader, options ...ipfsapi.FilesOpt) error
+	FilesRm(ctx context.Context, path string, force bool) error
+	FilesCp(ctx context.Context, src string, dest string) error
+	FilesStat(ctx context.Context, path string, options ...ipfsapi.FilesOpt) (*ipfsapi.FilesStatObject, error)
+	FilesMkdir(ctx context.Context, path string, options ...ipfsapi.FilesOpt) error
+}
+
 // Disco service allows us to do Disco things on top of the
 // Distribution server.
 type Disco struct {
-	api *ipfsapi.Shell
+	api IPFSClient
 }
 
 // NewDiscoService creates a new Disco service.
@@ -101,13 +112,13 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	if err != nil {
 		return fmt.Errorf("failed while getting the repo cid: %v", err)
 	}
-	repoCidB32 := toCidv1(repoCid)
-	if err := disco.api.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(repoCidB32)); err != nil {
+	repoCidV1 := toCidv1(repoCid)
+	if err := disco.api.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(repoCidV1)); err != nil {
 		return fmt.Errorf("failed while duplicating with base32 cid: %v", err)
 	}
 
 	// Step #4
-	if err := disco.createTagForLatest(ctx, manifestDigest, repoCidB32); err != nil {
+	if err := disco.createTagForLatest(ctx, manifestDigest, repoCidV1); err != nil {
 		return fmt.Errorf("failed to create tag for latest")
 	}
 
@@ -179,10 +190,10 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 	if err != nil {
 		return fmt.Errorf("failed to read the disco file: %v", err)
 	}
-	for digest, fileCid := range file.Blobs {
-		disco.api.FilesMkdir(ctx, makeBlobDirPath(digest), ipfsapi.FilesMkdir.Parents(true))
-		if err := disco.api.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", fileCid), makeBlobPath(digest)); err != nil {
-			return fmt.Errorf("failed while copying blob '%s' from the network: %v", digest, err)
+	for _, blobCid := range file.Blobs {
+		disco.api.FilesMkdir(ctx, makeBlobDirPath(blobCid.Digest), ipfsapi.FilesMkdir.Parents(true))
+		if err := disco.api.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", blobCid.Cid), makeBlobPath(blobCid.Digest)); err != nil {
+			return fmt.Errorf("failed while copying blob %s (%s) from the network: %v", blobCid.Digest, blobCid.Cid, err)
 		}
 	}
 
