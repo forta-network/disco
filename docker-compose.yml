@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  disco:
+    build: .
+    image: "openzeppelin/disco:latest"
+    ports:
+      - "1970:1970"
+    links:
+      - ipfs
+    environment:
+      - IPFS_URL=http://ipfs:5001
+  ipfs:
+    image: "ipfs/go-ipfs"
+    ports:
+      - "5001:5001"

@@ -133,7 +133,7 @@ func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo,
 
 // List returns a list of the objects that are direct descendants of the given path.
 func (d *driver) List(ctx context.Context, path string) ([]string, error) {
-	results, err := d.api.List(path)
+	results, err := d.api.FilesLs(ctx, path)
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
 	}
@@ -142,7 +142,7 @@ func (d *driver) List(ctx context.Context, path string) ([]string, error) {
 	}
 	var list []string
 	for _, result := range results {
-		list = append(list, result.Name)
+		list = append(list, path+"/"+result.Name)
 	}
 	return list, nil
 }
