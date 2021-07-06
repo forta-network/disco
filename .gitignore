@@ -1,6 +1,5 @@
 toolbin
 build
-go.sum
 .vscode
 __debug_bin
 log.txt
