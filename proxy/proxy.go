@@ -25,8 +25,8 @@ func ListenAndServe() error {
 	return (&http.Server{
 		Addr:         fmt.Sprintf(":%d", config.Vars.DiscoPort),
 		Handler:      NewHandler(rp, services.NewDiscoService()),
-		ReadTimeout:  time.Second * 30,
-		WriteTimeout: time.Second * 30,
+		ReadTimeout:  time.Minute * 10,
+		WriteTimeout: time.Minute * 10,
 		IdleTimeout:  time.Second * 30,
 	}).ListenAndServe()
 }
