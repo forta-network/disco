@@ -8,6 +8,7 @@ import (
 	_ "github.com/OpenZeppelin/disco/drivers/ipfs"
 	"github.com/OpenZeppelin/disco/proxy"
 	"github.com/distribution/distribution/v3/registry"
+	_ "github.com/distribution/distribution/v3/registry/auth/htpasswd"
 )
 
 func main() {
