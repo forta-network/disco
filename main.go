@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 
-	"github.com/OpenZeppelin/disco/config"
-	_ "github.com/OpenZeppelin/disco/drivers/ipfs"
-	"github.com/OpenZeppelin/disco/proxy"
 	"github.com/distribution/distribution/v3/registry"
-	_ "github.com/distribution/distribution/v3/registry/auth/htpasswd"
+	_ "github.com/forta-network/disco/auth/htpasswd"
+	"github.com/forta-network/disco/config"
+	_ "github.com/forta-network/disco/drivers/ipfs"
+	"github.com/forta-network/disco/proxy"
 )
 
 func main() {
