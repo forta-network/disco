@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	mock_services "github.com/OpenZeppelin/disco/proxy/services/mocks"
+	mock_services "github.com/forta-network/disco/proxy/services/mocks"
 	"github.com/golang/mock/gomock"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	"github.com/stretchr/testify/require"

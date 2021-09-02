@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/OpenZeppelin/disco/config"
+	"github.com/forta-network/disco/config"
 	"github.com/ipfs/go-cid"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	"github.com/multiformats/go-multihash"

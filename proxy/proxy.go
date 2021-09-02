@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenZeppelin/disco/config"
-	"github.com/OpenZeppelin/disco/proxy/services"
+	"github.com/forta-network/disco/config"
+	"github.com/forta-network/disco/proxy/services"
 )
 
 // ListenAndServe starts the proxy and listens to the port.

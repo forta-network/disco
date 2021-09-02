@@ -1,4 +1,4 @@
-module github.com/OpenZeppelin/disco
+module github.com/forta-network/disco
 
 go 1.16
 
@@ -10,4 +10,5 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/multiformats/go-multihash v0.0.15
 	github.com/stretchr/testify v1.7.0
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 )
