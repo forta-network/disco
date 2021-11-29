@@ -1,49 +1,61 @@
 package ipfs
 
 import (
-	"bytes"
 	"context"
-	"fmt"
+	"io"
+	"sync"
 
+	"github.com/forta-network/disco/proxy/services/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
+	log "github.com/sirupsen/logrus"
 )
 
 type fileWriter struct {
-	ctx       context.Context
-	api       *ipfsapi.Shell
-	path      string
-	opts      []ipfsapi.FilesOpt
-	buf       *bytes.Buffer
-	size      int64
-	closed    bool
-	committed bool
-	cancelled bool
+	ctx  context.Context
+	api  interfaces.IPFSClient
+	path string
+	opts []ipfsapi.FilesOpt
+	pr   *io.PipeReader
+	pw   *io.PipeWriter
+	size int64
+
+	err error
+	mu  sync.Mutex
 }
 
-func newFileWriter(ctx context.Context, api *ipfsapi.Shell, path string, opts []ipfsapi.FilesOpt, size int64) *fileWriter {
-	return &fileWriter{
+func newFileWriter(ctx context.Context, api interfaces.IPFSClient, path string, opts []ipfsapi.FilesOpt, size int64) *fileWriter {
+	pr, pw := io.Pipe()
+
+	fw := &fileWriter{
 		ctx:  ctx,
 		api:  api,
 		path: path,
 		opts: opts,
-		buf:  new(bytes.Buffer),
+		pr:   pr,
+		pw:   pw,
 		size: size,
 	}
+
+	go func(fw *fileWriter) {
+		fw.mu.Lock()
+		fw.err = fw.api.FilesWrite(fw.ctx, fw.path, pr, fw.opts...)
+		log.WithError(fw.err).WithField("path", fw.path).Debug("writer done")
+		fw.mu.Unlock()
+	}(fw)
+
+	return fw
 }
 
-func (fw *fileWriter) flush() error {
-	return fw.api.FilesWrite(fw.ctx, fw.path, fw.buf, fw.opts...)
+func (fw *fileWriter) getErr() error {
+	fw.mu.Lock()
+	err := fw.err
+	fw.mu.Unlock()
+	return err
 }
 
 func (fw *fileWriter) Write(p []byte) (int, error) {
-	if fw.closed {
-		return 0, fmt.Errorf("already closed")
-	} else if fw.committed {
-		return 0, fmt.Errorf("already committed")
-	} else if fw.cancelled {
-		return 0, fmt.Errorf("already cancelled")
-	}
-	n, err := fw.buf.Write(p)
+	log.WithField("path", fw.path).Debug("(*fileWriter).Write")
+	n, err := fw.pw.Write(p)
 	fw.size += int64(n)
 	return n, err
 }
@@ -53,41 +65,17 @@ func (fw *fileWriter) Size() int64 {
 }
 
 func (fw *fileWriter) Close() error {
-	if fw.closed {
-		return fmt.Errorf("already closed")
-	}
-
-	if err := fw.flush(); err != nil {
-		return err
-	}
-
-	fw.closed = true
-	return nil
+	log.WithField("path", fw.path).Debug("(*fileWriter).Close")
+	fw.pw.Close()
+	return fw.getErr()
 }
 
 func (fw *fileWriter) Cancel() error {
-	if fw.closed {
-		return fmt.Errorf("already closed")
-	}
-
-	fw.cancelled = true
-	fw.buf = nil
-	return nil
+	log.WithField("path", fw.path).Debug("(*fileWriter).Cancel")
+	return fw.Close()
 }
 
 func (fw *fileWriter) Commit() error {
-	if fw.closed {
-		return fmt.Errorf("already closed")
-	} else if fw.committed {
-		return fmt.Errorf("already committed")
-	} else if fw.cancelled {
-		return fmt.Errorf("already cancelled")
-	}
-
-	if err := fw.flush(); err != nil {
-		return err
-	}
-
-	fw.committed = true
-	return nil
+	log.WithField("path", fw.path).Debug("(*fileWriter).Commit")
+	return fw.Close()
 }

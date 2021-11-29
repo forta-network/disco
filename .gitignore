@@ -3,3 +3,4 @@ build
 .vscode
 __debug_bin
 log.txt
+*.log

@@ -16,7 +16,7 @@ docker-run: docker-build
 
 .PHONY: mocks
 mocks:
-	@mockgen -source proxy/services/disco.go -destination proxy/services/mocks/mock_services.go
+	@mockgen -source proxy/services/interfaces/interfaces.go -destination proxy/services/interfaces/mocks/mock_interfaces.go
 
 .PHONY: test
 test:

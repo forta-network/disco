@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/distribution/distribution/v3/registry"
 	_ "github.com/forta-network/disco/auth/htpasswd"
@@ -12,13 +13,15 @@ import (
 )
 
 func main() {
-	config.Init()
+	if err := config.Init(); err != nil {
+		log.WithError(err).Fatal("failed to initialize the config")
+	}
 	registry, err := registry.NewRegistry(context.Background(), config.DistributionConfig)
 	if err != nil {
-		log.Panicf("failed to initialize the registry: %v", err)
+		log.WithError(err).Fatal("failed to initialize the registry")
 	}
 	go registry.ListenAndServe()
 	if err := proxy.ListenAndServe(); err != nil {
-		log.Printf("proxy stopped: %v", err)
+		log.WithError(err).Warn("proxy stopped")
 	}
 }
