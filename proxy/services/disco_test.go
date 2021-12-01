@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	mock_services "github.com/forta-network/disco/proxy/services/mocks"
+	mock_interfaces "github.com/forta-network/disco/proxy/services/interfaces/mocks"
 	"github.com/golang/mock/gomock"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	"github.com/stretchr/testify/require"
@@ -54,7 +54,7 @@ type Suite struct {
 	ctx context.Context
 	r   *require.Assertions
 
-	ipfsClient *mock_services.MockIPFSClient
+	ipfsClient *mock_interfaces.MockIPFSClient
 
 	disco *Disco
 
@@ -65,7 +65,7 @@ type Suite struct {
 func (s *Suite) SetupTest() {
 	s.ctx = context.Background()
 	s.r = require.New(s.T())
-	s.ipfsClient = mock_services.NewMockIPFSClient(gomock.NewController(s.T()))
+	s.ipfsClient = mock_interfaces.NewMockIPFSClient(gomock.NewController(s.T()))
 	s.disco = &Disco{
 		api: s.ipfsClient,
 	}

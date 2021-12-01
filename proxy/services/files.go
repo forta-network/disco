@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
+	"github.com/forta-network/disco/proxy/services/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
+	log "github.com/sirupsen/logrus"
 )
 
 func (disco *Disco) digestFromLink(ctx context.Context, path string) (string, error) {
@@ -114,14 +117,46 @@ func (disco *Disco) writeDiscoFile(ctx context.Context, repoName string, discoFi
 }
 
 func (disco *Disco) readDiscoFile(ctx context.Context, repoName string) (*discoFile, error) {
-	r, err := disco.api.FilesRead(ctx, makeDiscoFilePath(repoName))
+	nodeClient, err := disco.api.GetClientFor(ctx, makeRepoPath(repoName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to route to provider client (before cloning global): %v", err)
+	}
+	hasFile, err := disco.hasFile(ctx, nodeClient, makeDiscoFilePath(repoName))
+	if err != nil {
+		return nil, err
+	}
+	if !hasFile {
+		nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
+		if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoName), makeRepoPath(repoName)); err != nil {
+			return nil, fmt.Errorf("failed while copying the repo from the network: %v", err)
+		}
+	}
+	log.WithError(err).Debugf("disco.json path: %s", makeDiscoFilePath(repoName))
+	r, err := nodeClient.FilesRead(ctx, makeDiscoFilePath(repoName))
 	if err != nil {
 		return nil, err
 	}
 	var file discoFile
-	return &file, json.NewDecoder(r).Decode(&file)
+	if err := json.NewDecoder(r).Decode(&file); err != nil {
+		return nil, fmt.Errorf("failed to decode disco file: %v", err)
+	}
+	return &file, nil
 }
 
 func (disco *Disco) createTagForLatest(ctx context.Context, repoName, tag string) error {
 	return disco.api.FilesCp(ctx, makeTagPathFor(repoName, "latest"), makeTagPathFor(repoName, tag))
+}
+
+func (disco *Disco) hasFile(ctx context.Context, client interfaces.IPFSFilesAPI, path string) (bool, error) {
+	_, err := client.FilesStat(ctx, path)
+	switch {
+	case err == nil:
+		return true, nil
+
+	case err != nil && strings.Contains(err.Error(), "does not exist"):
+		return false, nil
+
+	default:
+		return false, fmt.Errorf("failed to check if file exists: %v", err)
+	}
 }

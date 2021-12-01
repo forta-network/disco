@@ -2,43 +2,27 @@ package services
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
+	"strings"
 
-	"github.com/forta-network/disco/config"
-	"github.com/ipfs/go-cid"
+	"github.com/forta-network/disco/deps"
+	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
-	"github.com/multiformats/go-multihash"
+	log "github.com/sirupsen/logrus"
 )
-
-// IPFSClient makes requests to an IPFS node.
-type IPFSClient interface {
-	FilesRead(ctx context.Context, path string, options ...ipfsapi.FilesOpt) (io.ReadCloser, error)
-	FilesWrite(ctx context.Context, path string, data io.Reader, options ...ipfsapi.FilesOpt) error
-	FilesRm(ctx context.Context, path string, force bool) error
-	FilesCp(ctx context.Context, src string, dest string) error
-	FilesStat(ctx context.Context, path string, options ...ipfsapi.FilesOpt) (*ipfsapi.FilesStatObject, error)
-	FilesMkdir(ctx context.Context, path string, options ...ipfsapi.FilesOpt) error
-}
 
 // Disco service allows us to do Disco things on top of the
 // Distribution server.
 type Disco struct {
-	api IPFSClient
+	api interfaces.IPFSClient
 }
 
 // NewDiscoService creates a new Disco service.
 func NewDiscoService() *Disco {
-	ipfsURL, ok := config.DistributionConfig.Storage["ipfs"]["url"]
-	if !ok {
-		panic("no IPFS URL specified")
-	}
-	api := ipfsapi.NewShellWithClient(ipfsURL.(string), http.DefaultClient)
+	client := deps.Get()
 	return &Disco{
-		api: api,
+		api: client,
 	}
 }
 
@@ -88,7 +72,7 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	}
 	stat, err := disco.api.FilesStat(ctx, makeRepoPath(manifestDigest))
 	if err == nil && stat.CumulativeSize > 0 {
-		log.Println("already made globally accessible - skipping")
+		log.Info("already made globally accessible - skipping")
 		return nil
 	}
 
@@ -103,18 +87,29 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	}
 
 	// Step #2
-	if err := disco.api.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(manifestDigest)); err != nil {
-		return fmt.Errorf("failed while duplicating with digest: %v", err)
+	nodeClient, err := disco.api.GetClientFor(ctx, makeRepoPath(repoName))
+	if err != nil {
+		return fmt.Errorf("failed to find client for original repo provider (before copying): %v", err)
 	}
-
-	// Step #3
 	repoCid, err := disco.getCid(ctx, makeRepoPath(repoName))
 	if err != nil {
 		return fmt.Errorf("failed while getting the repo cid: %v", err)
 	}
-	repoCidV1 := toCidv1(repoCid)
-	if err := disco.api.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(repoCidV1)); err != nil {
+	repoCidV1 := utils.ToCIDv1(repoCid)
+	err = nodeClient.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(repoCidV1))
+	if err != nil && !strings.Contains(err.Error(), "already has entry") {
 		return fmt.Errorf("failed while duplicating with base32 cid: %v", err)
+	}
+
+	// Step #3
+	// make blob digest hex multiplexing logic work
+	nodeClient, err = disco.api.GetClientFor(ctx, makeRepoPath(manifestDigest))
+	if err != nil {
+		return fmt.Errorf("failed to find client for destination repo provider (before copying digest-name repo): %v", err)
+	}
+	nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
+	if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), makeRepoPath(manifestDigest)); err != nil {
+		return fmt.Errorf("failed while duplicating with digest: %v", err)
 	}
 
 	// Step #4
@@ -125,86 +120,46 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	return nil
 }
 
-func toCidv1(fileCid string) string {
-	parsed, err := multihash.FromB58String(fileCid)
-	if err != nil {
-		panic(err)
-	}
-	return cid.NewCidV1(cid.DagProtobuf, parsed).String()
-}
-
-func isCidv1(fileCid string) bool {
-	parsed, err := cid.Parse(fileCid)
-	if err != nil {
-		return false
-	}
-	return parsed.Version() == 1
-}
-
-func isDigestHex(digest string) bool {
-	if len(digest) != 64 {
-		return false
-	}
-	_, err := hex.DecodeString(digest)
-	return err == nil
-}
-
-// IsOnlyPullable tells if the repo is only pullable.
+// IsOnlyPullable tells if the repo is name of a pullable-only repo name.
 func (disco *Disco) IsOnlyPullable(repoName string) bool {
-	return isCidv1(repoName) || isDigestHex(repoName)
+	return utils.IsCIDv1(repoName) || utils.IsDigestHex(repoName)
 }
 
 // CloneGlobalRepo clones the repo from IPFS network to the IPFS node.
 // Steps in here are executed before Distribution server tries to locate a repository:
 //  1. Check if the repo name is base32 CID v1. If not, leave the rest to the Distribution server.
-//  2. Try to find the manifest for the repo. If it exists, leave the rest to the Distribution server.
-//  3. Copy the repo files from IPFS network to the IPFS node's MFS.
-//  4. Use disco.json inside the repo files to copy the blobs over the network.
-//  5. Duplicate the repo by using the manifest digest as the repo name. (MakeGlobalRepo step #2)
-//  6. Tag the duplicated repo like <digest>:<CID>. (MakeGlobalRepo step #4)
+//  2. Copy the repo files from IPFS network to the IPFS node's MFS.
+//  3. Use disco.json inside the repo files to copy the blobs over the network.
 // The end result in the IPFS node's MFS should look like the one from MakeGlobalRepo and all CIDs should match.
 func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error {
 	// Step #1
-	if !isCidv1(repoName) {
+	if !utils.IsCIDv1(repoName) {
+		log.WithField("repository", repoName).Debugf("not a cidv1 name - not attempting to clone from ipfs")
 		return nil
 	}
 
-	// Step #2
-	manifestDigest, err := disco.digestFromLink(ctx, makeManifestLinkPath(repoName))
-	if err == nil {
-		return nil
-	}
-
-	// Step #3
-	disco.api.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
-	if err := disco.api.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoName), makeRepoPath(repoName)); err != nil {
-		return fmt.Errorf("failed while copying the repo from the network: %v", err)
-	}
-	manifestDigest, err = disco.digestFromLink(ctx, makeManifestLinkPath(repoName))
-	if err != nil {
-		return fmt.Errorf("failed to get the manifest digest from the copied repo: %v", err)
-	}
-
-	// Step #4
+	// Step #2 and #3
 	file, err := disco.readDiscoFile(ctx, repoName)
 	if err != nil {
 		return fmt.Errorf("failed to read the disco file: %v", err)
 	}
 	for _, blobCid := range file.Blobs {
-		disco.api.FilesMkdir(ctx, makeBlobDirPath(blobCid.Digest), ipfsapi.FilesMkdir.Parents(true))
-		if err := disco.api.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", blobCid.Cid), makeBlobPath(blobCid.Digest)); err != nil {
+		// get the client without the provider: causes blobs to be replicated after increasing the amountof IPFS nodes
+		blobNodeClient, err := disco.api.GetClientFor(ctx, makeBlobPath(blobCid.Digest))
+		if err != nil {
+			return fmt.Errorf("failed to get blob node client: %v", err)
+		}
+		hasFile, err := disco.hasFile(ctx, blobNodeClient, makeBlobPath(blobCid.Digest))
+		if err != nil {
+			return fmt.Errorf("failed to check if blob exists: %v", err)
+		}
+		if hasFile {
+			continue
+		}
+		blobNodeClient.FilesMkdir(ctx, makeBlobDirPath(blobCid.Digest), ipfsapi.FilesMkdir.Parents(true))
+		if err := blobNodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", blobCid.Cid), makeBlobPath(blobCid.Digest)); err != nil {
 			return fmt.Errorf("failed while copying blob %s (%s) from the network: %v", blobCid.Digest, blobCid.Cid, err)
 		}
-	}
-
-	// Step #5
-	if err := disco.api.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(manifestDigest)); err != nil {
-		return fmt.Errorf("failed while duplicating with digest: %v", err)
-	}
-
-	// Step #6
-	if err := disco.createTagForLatest(ctx, manifestDigest, repoName); err != nil {
-		return fmt.Errorf("failed to create tag for latest")
 	}
 
 	return nil

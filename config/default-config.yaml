@@ -6,7 +6,11 @@ log:
     environment: development
 storage:
   ipfs:
-    url: http://localhost:5001
+    # url: http://localhost:5001 # this is for working with single IPFS node
+    router:
+      nodes:
+        - url: http://localhost:5001
+        # - url: http://other.url
   delete:
     enabled: true
   maintenance:
