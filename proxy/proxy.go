@@ -52,7 +52,7 @@ func preHandle(rw http.ResponseWriter, r *http.Request, disco *services.Disco) b
 		}
 	}
 
-	if r.Method == http.MethodHead && strings.Contains(r.URL.Path, "/manifests/latest") {
+	if (r.Method == http.MethodHead || r.Method == http.MethodGet) && strings.Contains(r.URL.Path, "/manifests/") {
 		repoName := strings.Split(r.URL.Path[1:], "/")[1]
 		if err := disco.CloneGlobalRepo(r.Context(), repoName); err != nil {
 			log.Printf("failed to clone global repo: %v", err)
