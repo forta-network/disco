@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/forta-network/disco/deps"
-	"github.com/forta-network/disco/proxy/services/interfaces"
-	"github.com/forta-network/disco/utils"
+	"github.com/forta-protocol/disco/deps"
+	"github.com/forta-protocol/disco/proxy/services/interfaces"
+	"github.com/forta-protocol/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
 )
