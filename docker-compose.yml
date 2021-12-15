@@ -2,7 +2,7 @@ version: "3.9"
 services:
   disco:
     build: .
-    image: "forta-network/disco:latest"
+    image: "forta-protocol/disco:latest"
     ports:
       - "1970:1970"
     links:

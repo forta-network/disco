@@ -10,8 +10,8 @@ import (
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/distribution/distribution/v3/registry/storage/driver/base"
 	"github.com/distribution/distribution/v3/registry/storage/driver/factory"
-	"github.com/forta-network/disco/deps"
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-protocol/disco/deps"
+	"github.com/forta-protocol/disco/proxy/services/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 )
 

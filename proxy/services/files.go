@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-protocol/disco/proxy/services/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
 )
