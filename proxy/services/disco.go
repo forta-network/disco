@@ -66,16 +66,11 @@ func NewDiscoService() *Disco {
 //        /<cidv1(QmWhatever2)>
 func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	driver := ipfsdriver.Get()
-	multiDriver, isMultiDriver := multidriver.Is(driver)
 
 	uploadRepoPath := makeRepoPath(repoName)
 
 	// Step #5
-	if isMultiDriver {
-		defer multiDriver.Delete(ctx, uploadRepoPath)
-	} else {
-		defer driver.Delete(ctx, uploadRepoPath)
-	}
+	defer driver.Delete(ctx, uploadRepoPath)
 
 	// Step #1
 	manifestDigest, err := disco.digestFromLink(ctx, makeManifestLinkPath(repoName))
@@ -132,12 +127,12 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		return fmt.Errorf("failed to create tag for latest")
 	}
 
-	// replicate repo definitions and blobs in primary
+	// replicate repo definitions and blobs in secondary
 	contentPaths := []string{manifestDigestRepoPath, ipfsCidRepoPath}
 	for _, blob := range blobs {
 		contentPaths = append(contentPaths, makeBlobPath(blob.Digest))
 	}
-	if err := disco.replicateInPrimary(multiDriver, contentPaths); err != nil {
+	if err := disco.replicateInSecondary(driver, contentPaths); err != nil {
 		return err
 	}
 	return nil
@@ -201,23 +196,23 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		}
 	}
 
-	// replicate repo definitions and blobs in primary
+	// replicate repo definitions and blobs in secondary
 	contentPaths := []string{makeRepoPath(repoName)}
 	for _, blob := range file.Blobs {
 		contentPaths = append(contentPaths, makeBlobPath(blob.Digest))
 	}
-	multiDriver, _ := multidriver.Is(driver)
-	return disco.replicateInPrimary(multiDriver, contentPaths)
+	return disco.replicateInSecondary(driver, contentPaths)
 }
 
-func (disco *Disco) replicateInPrimary(multiDriver multidriver.MultiDriver, contentPaths []string) error {
-	if multiDriver == nil {
+func (disco *Disco) replicateInSecondary(driver storagedriver.StorageDriver, contentPaths []string) error {
+	multiDriver, ok := multidriver.Is(driver)
+	if !ok {
 		return nil
 	}
 	for _, contentPath := range contentPaths {
-		_, err := multiDriver.ReplicateInPrimary(contentPath)
+		_, err := multiDriver.ReplicateInSecondary(contentPath)
 		if err != nil {
-			return fmt.Errorf("failed to replicate '%s' in primary: %v", contentPath, err)
+			return fmt.Errorf("failed to replicate '%s' in secondary: %v", contentPath, err)
 		}
 	}
 

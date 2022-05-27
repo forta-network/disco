@@ -15,7 +15,7 @@ import (
 
 // MultiDriver combines and deals with multiple drivers.
 type MultiDriver interface {
-	ReplicateInPrimary(contentPath string) (storagedriver.FileInfo, error)
+	ReplicateInSecondary(contentPath string) (storagedriver.FileInfo, error)
 	storagedriver.StorageDriver
 }
 
@@ -43,58 +43,58 @@ func (d *driver) Name() string {
 	return fmt.Sprintf("%s+%s", d.primary.Name(), d.secondary.Name())
 }
 
-// ReplicateInPrimary replicates the content that exists in secondary storage to the primary storage.
-func (d *driver) ReplicateInPrimary(contentPath string) (storagedriver.FileInfo, error) {
-	ctx := context.Background() // not cancellable - continue in any case
-	priInfo, err := d.primary.Stat(ctx, contentPath)
-	switch err.(type) {
-	case nil:
-		return priInfo, nil // already exists in primary - abort
-	case storagedriver.PathNotFoundError:
-		// does not exist in primary - continue and copy to primary
-	default:
-		return nil, fmt.Errorf("failed to check in primary before replication: %v", err)
-	}
-
+// ReplicateInSecondary replicates the content that exists in primary storage to the secondary storage.
+func (d *driver) ReplicateInSecondary(contentPath string) (storagedriver.FileInfo, error) {
+	ctx := context.Background() // should not be cancellable
 	secInfo, err := d.secondary.Stat(ctx, contentPath)
 	switch err.(type) {
 	case nil:
-		// exists in secondary - continue and copy from secondary
+		return secInfo, nil // already exists in secondary - exit recursion
 	case storagedriver.PathNotFoundError:
-		return nil, err
+		// does not exist in secondary - continue and copy to secondary
 	default:
 		return nil, fmt.Errorf("failed to check in secondary before replication: %v", err)
 	}
 
-	if !secInfo.IsDir() {
-		return nil, d.copyToPrimary(ctx, contentPath)
+	priInfo, err := d.primary.Stat(ctx, contentPath)
+	switch err.(type) {
+	case nil:
+		// exists in primary - continue and copy from primary
+	case storagedriver.PathNotFoundError:
+		return nil, err
+	default:
+		return nil, fmt.Errorf("failed to check in primary before replication: %v", err)
 	}
 
-	return nil, d.secondary.Walk(ctx, contentPath, func(fileInfo storagedriver.FileInfo) error {
+	if !priInfo.IsDir() {
+		return nil, d.copyToSecondary(ctx, contentPath)
+	}
+
+	return nil, d.primary.Walk(ctx, contentPath, func(fileInfo storagedriver.FileInfo) error {
 		fullPath := path.Join(fileInfo.Path())
 		if fileInfo.IsDir() {
-			_, err := d.ReplicateInPrimary(fullPath)
+			_, err := d.ReplicateInSecondary(fullPath)
 			return err
 		}
-		return d.copyToPrimary(ctx, fullPath)
+		return d.copyToSecondary(ctx, fullPath)
 	})
 }
 
-func (d *driver) copyToPrimary(ctx context.Context, path string) error {
-	secReader, err := d.secondary.Reader(ctx, path, 0)
+func (d *driver) copyToSecondary(ctx context.Context, path string) error {
+	priReader, err := d.primary.Reader(ctx, path, 0)
 	if err != nil {
 		return err
 	}
-	defer secReader.Close()
+	defer priReader.Close()
 
-	priWriter, err := d.primary.Writer(ctx, path, false)
+	secWriter, err := d.secondary.Writer(ctx, path, false)
 	if err != nil {
-		return fmt.Errorf("failed to create the primary driver writer: %v", err)
+		return fmt.Errorf("failed to create the secondary driver writer: %v", err)
 	}
-	defer priWriter.Close()
+	defer secWriter.Close()
 
-	if _, err = io.Copy(priWriter, secReader); err != nil {
-		return fmt.Errorf("failed to copy from secondary to primary: %v", err)
+	if _, err = io.Copy(secWriter, priReader); err != nil {
+		return fmt.Errorf("failed to copy from primary to secondary: %v", err)
 	}
 
 	return nil
@@ -103,20 +103,20 @@ func (d *driver) copyToPrimary(ctx context.Context, path string) error {
 // GetContent retrieves the content stored at "path" as a []byte.
 // This should primarily be used for small objects.
 func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
-	if _, err := d.ReplicateInPrimary(path); err != nil {
+	if _, err := d.ReplicateInSecondary(path); err != nil {
 		return nil, err
 	}
-	return d.primary.GetContent(ctx, path)
+	return d.secondary.GetContent(ctx, path)
 }
 
 // PutContent stores the []byte content at a location designated by "path".
 // This should primarily be used for small objects.
 func (d *driver) PutContent(ctx context.Context, path string, content []byte) error {
-	if err := d.secondary.PutContent(ctx, path, content); err != nil {
-		return fmt.Errorf("PutContent() secondary: %v", err)
-	}
 	if err := d.primary.PutContent(ctx, path, content); err != nil {
 		return fmt.Errorf("PutContent() primary: %v", err)
+	}
+	if err := d.secondary.PutContent(ctx, path, content); err != nil {
+		return fmt.Errorf("PutContent() secondary: %v", err)
 	}
 	return nil
 }
@@ -125,10 +125,10 @@ func (d *driver) PutContent(ctx context.Context, path string, content []byte) er
 // with a given byte offset.
 // May be used to resume reading a stream by providing a nonzero offset.
 func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
-	if _, err := d.ReplicateInPrimary(path); err != nil {
+	if _, err := d.ReplicateInSecondary(path); err != nil {
 		return nil, err
 	}
-	return d.primary.Reader(ctx, path, offset)
+	return d.secondary.Reader(ctx, path, offset)
 }
 
 // Writer returns a FileWriter which will store the content written to it
@@ -151,35 +151,35 @@ func (d *driver) Writer(ctx context.Context, path string, append bool) (storaged
 // Stat retrieves the FileInfo for the given path, including the current
 // size in bytes and the creation time.
 func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo, error) {
-	priStat, err := d.ReplicateInPrimary(path)
+	secStat, err := d.ReplicateInSecondary(path)
 	if err != nil {
 		return nil, err
 	}
-	if priStat != nil {
-		return priStat, nil
+	if secStat != nil {
+		return secStat, nil
 	}
-	priStat, err = d.primary.Stat(ctx, path)
-	return priStat, err
+	secStat, err = d.secondary.Stat(ctx, path)
+	return secStat, err
 }
 
 // List returns a list of the objects that are direct descendants of the
 // given path.
 func (d *driver) List(ctx context.Context, path string) ([]string, error) {
-	if _, err := d.ReplicateInPrimary(path); err != nil {
+	if _, err := d.ReplicateInSecondary(path); err != nil {
 		return nil, err
 	}
-	return d.primary.List(ctx, path)
+	return d.secondary.List(ctx, path)
 }
 
 // Move moves an object stored at sourcePath to destPath, removing the
 // original object.
 func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
 	// do not replicate - we don't expect `Move()`s before any writes, which already ensure replication
-	if err := d.secondary.Move(ctx, sourcePath, destPath); err != nil {
-		return fmt.Errorf("Move() secondary: %v", err)
-	}
 	if err := d.primary.Move(ctx, sourcePath, destPath); err != nil {
 		return fmt.Errorf("Move() primary: %v", err)
+	}
+	if err := d.secondary.Move(ctx, sourcePath, destPath); err != nil {
+		return fmt.Errorf("Move() secondary: %v", err)
 	}
 	return nil
 }
@@ -187,11 +187,11 @@ func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) e
 // Delete recursively deletes all objects stored at "path" and its subpaths.
 func (d *driver) Delete(ctx context.Context, path string) error {
 	// no need to replicate - just deleting anyways
-	if err := d.secondary.Delete(ctx, path); err != nil {
-		return fmt.Errorf("Delete() secondary: %v", err)
-	}
 	if err := d.primary.Delete(ctx, path); err != nil {
 		return fmt.Errorf("Delete() primary: %v", err)
+	}
+	if err := d.secondary.Delete(ctx, path); err != nil {
+		return fmt.Errorf("Delete() secondary: %v", err)
 	}
 	return nil
 }

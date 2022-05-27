@@ -18,46 +18,46 @@ func newMultiFileWriter(primary storagedriver.FileWriter, secondary storagedrive
 }
 
 func (fw *fileWriter) Write(p []byte) (int, error) {
-	n, errSec := fw.secondary.Write(p)
-	_, errPri := fw.primary.Write(p)
-	if errSec != nil {
-		return n, errSec
-	}
+	n, errPri := fw.primary.Write(p)
 	if errPri != nil {
 		return n, errPri
+	}
+	n, errSec := fw.secondary.Write(p)
+	if errSec != nil {
+		return n, errSec
 	}
 	return n, nil
 }
 
 func (fw *fileWriter) Size() int64 {
-	return fw.secondary.Size()
+	return fw.primary.Size()
 }
 
 func (fw *fileWriter) Close() error {
-	if err := fw.secondary.Close(); err != nil {
+	if err := fw.primary.Close(); err != nil {
 		return err
 	}
-	if err := fw.primary.Close(); err != nil {
+	if err := fw.secondary.Close(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (fw *fileWriter) Cancel() error {
-	if err := fw.secondary.Cancel(); err != nil {
+	if err := fw.primary.Cancel(); err != nil {
 		return err
 	}
-	if err := fw.primary.Cancel(); err != nil {
+	if err := fw.secondary.Cancel(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (fw *fileWriter) Commit() error {
-	if err := fw.secondary.Commit(); err != nil {
+	if err := fw.primary.Commit(); err != nil {
 		return err
 	}
-	if err := fw.primary.Commit(); err != nil {
+	if err := fw.secondary.Commit(); err != nil {
 		return err
 	}
 	return nil
