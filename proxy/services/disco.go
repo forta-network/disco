@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/forta-protocol/disco/deps"
+	ipfsdriver "github.com/forta-protocol/disco/drivers/ipfs"
+	"github.com/forta-protocol/disco/drivers/multidriver"
 	"github.com/forta-protocol/disco/proxy/services/interfaces"
 	"github.com/forta-protocol/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
@@ -62,16 +65,26 @@ func NewDiscoService() *Disco {
 //        /latest
 //        /<cidv1(QmWhatever2)>
 func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
+	driver := ipfsdriver.Get()
+	multiDriver, isMultiDriver := multidriver.Is(driver)
+
+	uploadRepoPath := makeRepoPath(repoName)
+
 	// Step #5
-	defer disco.api.FilesRm(ctx, makeRepoPath(repoName), true)
+	if isMultiDriver {
+		defer multiDriver.Delete(ctx, uploadRepoPath)
+	} else {
+		defer driver.Delete(ctx, uploadRepoPath)
+	}
 
 	// Step #1
 	manifestDigest, err := disco.digestFromLink(ctx, makeManifestLinkPath(repoName))
 	if err != nil {
 		return fmt.Errorf("failed to read the digest from the link: %v", err)
 	}
-	stat, err := disco.api.FilesStat(ctx, makeRepoPath(manifestDigest))
-	if err == nil && stat.CumulativeSize > 0 {
+	manifestDigestRepoPath := makeRepoPath(manifestDigest)
+	stat, err := driver.Stat(ctx, manifestDigestRepoPath)
+	if err == nil && stat.Size() > 0 {
 		log.Info("already made globally accessible - skipping")
 		return nil
 	}
@@ -87,28 +100,30 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	}
 
 	// Step #2
-	nodeClient, err := disco.api.GetClientFor(ctx, makeRepoPath(repoName))
+	nodeClient, err := disco.api.GetClientFor(ctx, uploadRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed to find client for original repo provider (before copying): %v", err)
 	}
-	repoCid, err := disco.getCid(ctx, makeRepoPath(repoName))
+	repoCid, err := disco.getCid(ctx, uploadRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed while getting the repo cid: %v", err)
 	}
 	repoCidV1 := utils.ToCIDv1(repoCid)
-	err = nodeClient.FilesCp(ctx, makeRepoPath(repoName), makeRepoPath(repoCidV1))
+	ipfsCidRepoPath := makeRepoPath(repoCidV1)
+	err = nodeClient.FilesCp(ctx, uploadRepoPath, ipfsCidRepoPath)
 	if err != nil && !strings.Contains(err.Error(), "already has entry") {
 		return fmt.Errorf("failed while duplicating with base32 cid: %v", err)
 	}
 
 	// Step #3
 	// make blob digest hex multiplexing logic work
-	nodeClient, err = disco.api.GetClientFor(ctx, makeRepoPath(manifestDigest))
+	nodeClient, err = disco.api.GetClientFor(ctx, manifestDigestRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed to find client for destination repo provider (before copying digest-name repo): %v", err)
 	}
 	nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
-	if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), makeRepoPath(manifestDigest)); err != nil {
+	nodeClient.FilesRm(ctx, manifestDigestRepoPath, true)
+	if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), manifestDigestRepoPath); err != nil {
 		return fmt.Errorf("failed while duplicating with digest: %v", err)
 	}
 
@@ -117,6 +132,14 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		return fmt.Errorf("failed to create tag for latest")
 	}
 
+	// replicate repo definitions and blobs in primary
+	contentPaths := []string{manifestDigestRepoPath, ipfsCidRepoPath}
+	for _, blob := range blobs {
+		contentPaths = append(contentPaths, makeBlobPath(blob.Digest))
+	}
+	if err := disco.replicateInPrimary(multiDriver, contentPaths); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -136,6 +159,22 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 	if !utils.IsCIDv1(repoName) {
 		log.WithField("repository", repoName).Debugf("not a cidv1 name - not attempting to clone from ipfs")
 		return nil
+	}
+
+	driver := ipfsdriver.Get()
+	stat, err := driver.Stat(ctx, makeDiscoFilePath(repoName))
+	switch err.(type) {
+	case nil:
+		if !stat.IsDir() && stat.Size() > 0 {
+			log.WithField("repository", repoName).Debug("found in storage - not attempting to clone from ipfs")
+			return nil
+		}
+
+	case storagedriver.PathNotFoundError:
+		// continue cloning
+
+	default:
+		return fmt.Errorf("failed to check disco file using the driver: %v", err)
 	}
 
 	// Step #2 and #3
@@ -159,6 +198,26 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		blobNodeClient.FilesMkdir(ctx, makeBlobDirPath(blobCid.Digest), ipfsapi.FilesMkdir.Parents(true))
 		if err := blobNodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", blobCid.Cid), makeBlobPath(blobCid.Digest)); err != nil {
 			return fmt.Errorf("failed while copying blob %s (%s) from the network: %v", blobCid.Digest, blobCid.Cid, err)
+		}
+	}
+
+	// replicate repo definitions and blobs in primary
+	contentPaths := []string{makeRepoPath(repoName)}
+	for _, blob := range file.Blobs {
+		contentPaths = append(contentPaths, makeBlobPath(blob.Digest))
+	}
+	multiDriver, _ := multidriver.Is(driver)
+	return disco.replicateInPrimary(multiDriver, contentPaths)
+}
+
+func (disco *Disco) replicateInPrimary(multiDriver multidriver.MultiDriver, contentPaths []string) error {
+	if multiDriver == nil {
+		return nil
+	}
+	for _, contentPath := range contentPaths {
+		_, err := multiDriver.ReplicateInPrimary(contentPath)
+		if err != nil {
+			return fmt.Errorf("failed to replicate '%s' in primary: %v", contentPath, err)
 		}
 	}
 

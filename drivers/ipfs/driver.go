@@ -3,22 +3,35 @@ package ipfs
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
 
+	"github.com/distribution/distribution/v3/configuration"
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/distribution/distribution/v3/registry/storage/driver/base"
 	"github.com/distribution/distribution/v3/registry/storage/driver/factory"
+	"github.com/forta-protocol/disco/config"
 	"github.com/forta-protocol/disco/deps"
+	"github.com/forta-protocol/disco/drivers"
+	"github.com/forta-protocol/disco/drivers/filewriter"
+	"github.com/forta-protocol/disco/drivers/multidriver"
 	"github.com/forta-protocol/disco/proxy/services/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 )
 
-const driverName = "ipfs"
+const (
+	driverName = "ipfs"
+)
+
+var (
+	defaultFactory = &driverFactory{}
+	defaultDriver  storagedriver.StorageDriver
+)
 
 func init() {
-	factory.Register(driverName, &driverFactory{})
+	factory.Register(driverName, defaultFactory)
 }
 
 // driver is the concrete IPFS driver implementation.
@@ -29,7 +42,40 @@ type driver struct {
 type driverFactory struct{}
 
 func (df *driverFactory) Create(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
-	return FromParameters(parameters)
+	ipfsDriver, err := fromParameters(parameters)
+	if err != nil {
+		defaultDriver = ipfsDriver
+		return nil, fmt.Errorf("failed to create ipfs driver: %v", err)
+	}
+	if config.Cache == nil {
+		return ipfsDriver, nil
+	}
+	// create multidriver by using cache as primary
+	var (
+		driverName   string
+		driverParams configuration.Parameters
+	)
+	for dName, dParams := range config.Cache {
+		driverName = dName
+		driverParams = dParams
+		break
+	}
+	cacheDriver, err := factory.Create(driverName, driverParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the cache driver (%s): %v", driverName, err)
+	}
+	defaultDriver, err = multidriver.New(*config.RedirectTo, cacheDriver, ipfsDriver), nil
+	return defaultDriver, err
+}
+
+// Get returns the already created default driver.
+func Get() storagedriver.StorageDriver {
+	return defaultDriver
+}
+
+// Create create creates a new driver instance from parameters.
+func Create(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
+	return defaultFactory.Create(parameters)
 }
 
 // Driver is the exposed IPFS driver implementation.
@@ -37,8 +83,8 @@ type Driver struct {
 	base.Base
 }
 
-// FromParameters constructs a new driver using given parameters.
-func FromParameters(parameters map[string]interface{}) (*Driver, error) {
+// fromParameters constructs a new driver using given parameters.
+func fromParameters(parameters map[string]interface{}) (*Driver, error) {
 	api := deps.Get()
 	return &Driver{
 		Base: base.Base{
@@ -57,7 +103,7 @@ func (d *driver) Name() string {
 
 // GetContent retrieves the content stored at "path" as a []byte.
 func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	readCloser, err := d.Reader(ctx, path, 0)
 	if err != nil {
 		return nil, err
@@ -68,14 +114,14 @@ func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
 
 // PutContent stores the []byte content at a location designated by "path".
 func (d *driver) PutContent(ctx context.Context, path string, contents []byte) error {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	return d.api.FilesWrite(ctx, path, bytes.NewBuffer(contents), ipfsapi.FilesWrite.Create(true), ipfsapi.FilesWrite.Parents(true))
 }
 
 // Reader retrieves an io.ReadCloser for the content stored at "path" with a
 // given byte offset.
 func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	reader, err := d.api.FilesRead(ctx, path, ipfsapi.FilesRead.Offset(offset))
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
@@ -89,7 +135,7 @@ func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.Read
 // Writer returns a FileWriter which will store the content written to it
 // at the location designated by "path" after the call to Commit.
 func (d *driver) Writer(ctx context.Context, path string, shouldAppend bool) (storagedriver.FileWriter, error) {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	fileOpts := []ipfsapi.FilesOpt{ipfsapi.FilesWrite.Create(true), ipfsapi.FilesWrite.Parents(true)}
 	var offset int64
 	if shouldAppend {
@@ -103,7 +149,13 @@ func (d *driver) Writer(ctx context.Context, path string, shouldAppend bool) (st
 		offset = int64(stat.Size)
 		fileOpts = append(fileOpts, ipfsapi.FilesWrite.Offset(offset))
 	}
-	return newFileWriter(ctx, d.api, path, fileOpts, offset), nil
+	return filewriter.NewFileWriter(ctx, d.Name(), d.writeFunc(path, fileOpts), path, offset), nil
+}
+
+func (d *driver) writeFunc(path string, opts []ipfsapi.FilesOpt) filewriter.WriteFunc {
+	return func(ctx context.Context, path string, r io.Reader) error {
+		return d.api.FilesWrite(ctx, path, r, opts...)
+	}
 }
 
 func isNotFoundErr(err error) bool {
@@ -117,7 +169,7 @@ func isNotFoundErr(err error) bool {
 // Stat retrieves the FileInfo for the given path, including the current size
 // in bytes and the creation time.
 func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo, error) {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	stat, err := d.api.FilesStat(ctx, path)
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
@@ -130,7 +182,7 @@ func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo,
 
 // List returns a list of the objects that are direct descendants of the given path.
 func (d *driver) List(ctx context.Context, path string) ([]string, error) {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	results, err := d.api.FilesLs(ctx, path)
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
@@ -147,8 +199,8 @@ func (d *driver) List(ctx context.Context, path string) ([]string, error) {
 
 // Move moves an object stored at sourcePath to destPath, removing the original object.
 func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
-	sourcePath = fixUploadPath(sourcePath)
-	destPath = fixUploadPath(destPath)
+	sourcePath = drivers.FixUploadPath(sourcePath)
+	destPath = drivers.FixUploadPath(destPath)
 	folderPath := destPath[:strings.LastIndex(destPath, "/")+1]
 	if err := d.api.FilesMkdir(ctx, folderPath, ipfsapi.FilesMkdir.Parents(true)); err != nil {
 		return err
@@ -158,7 +210,7 @@ func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) e
 
 // Delete recursively deletes all objects stored at "path" and its subpaths.
 func (d *driver) Delete(ctx context.Context, path string) error {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	return d.api.FilesRm(ctx, path, true)
 }
 
@@ -166,31 +218,12 @@ func (d *driver) Delete(ctx context.Context, path string) error {
 // May return an UnsupportedMethodErr in certain StorageDriver implementations and we don't
 // currently support this method, too.
 func (d *driver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
-	path = fixUploadPath(path)
 	return "", storagedriver.ErrUnsupportedMethod{DriverName: driverName}
 }
 
 // Walk traverses a filesystem defined within driver, starting
 // from the given path, calling f on each file.
 func (d *driver) Walk(ctx context.Context, path string, f storagedriver.WalkFn) error {
-	path = fixUploadPath(path)
+	path = drivers.FixUploadPath(path)
 	return storagedriver.WalkFallback(ctx, d, path, f)
-}
-
-// fixUploadPath rewrites .../repository/<name>/_uploads to .../uploads to make things easier.
-func fixUploadPath(path string) string {
-	if !strings.Contains(path, "/_uploads") {
-		return path
-	}
-	newPath := "/docker/registry/v2/uploads"
-	var append bool
-	for _, segment := range strings.Split(path, "/") {
-		if append {
-			newPath += "/" + segment
-		}
-		if segment == "_uploads" {
-			append = true
-		}
-	}
-	return newPath
 }

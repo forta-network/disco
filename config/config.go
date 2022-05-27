@@ -3,10 +3,12 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/distribution/distribution/v3/configuration"
 	"github.com/kelseyhightower/envconfig"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,12 +33,16 @@ var (
 	Vars               envVars
 	DistributionConfig *configuration.Configuration
 	Router             RouterConfig
+	Cache              configuration.Storage
+	RedirectTo         *url.URL
 )
 
 var customConfig struct {
 	Storage struct {
 		IPFS struct {
-			Router RouterConfig `yaml:"router"`
+			Router   RouterConfig          `yaml:"router"`
+			Cache    configuration.Storage `yaml:"cache"`
+			Redirect string                `yaml:"redirect"`
 		} `yaml:"ipfs"`
 	} `yaml:"storage"`
 }
@@ -50,6 +56,7 @@ func Init() error {
 		return fmt.Errorf("failed to open config file: %v", err)
 	}
 	defer file.Close()
+	log.WithField("config", Vars.RegistryConfigurationPath).Info("found configuration")
 
 	DistributionConfig, err = configuration.Parse(file)
 	if err != nil {
@@ -59,8 +66,8 @@ func Init() error {
 	// Override/set IPFS config for the IPFS driver to consume.
 	// Following the original naming convention in https://github.com/distribution/distribution.
 	ipfsConfig := DistributionConfig.Storage["ipfs"]
-	if ipfsConfig["url"] == nil && ipfsConfig["router"] == nil {
-		return errors.New("please specify at least one of 'url' or 'router' in ipfs driver config")
+	if ipfsConfig["router"] == nil {
+		return errors.New("please specify 'router' in ipfs driver config")
 	}
 	if len(Vars.IPFSURL) > 0 {
 		ipfsConfig["url"] = Vars.IPFSURL
@@ -73,6 +80,11 @@ func Init() error {
 			return err
 		}
 		Router = customConfig.Storage.IPFS.Router
+		Cache = customConfig.Storage.IPFS.Cache
+		RedirectTo, err = url.Parse(customConfig.Storage.IPFS.Redirect)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

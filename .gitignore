@@ -1,6 +1,9 @@
 toolbin
 build
+disco
 .vscode
 __debug_bin
 log.txt
 *.log
+testdir
+dev-config.yaml
