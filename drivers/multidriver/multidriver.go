@@ -71,12 +71,10 @@ func (d *driver) ReplicateInSecondary(contentPath string) (storagedriver.FileInf
 	}
 
 	return nil, d.primary.Walk(ctx, contentPath, func(fileInfo storagedriver.FileInfo) error {
-		fullPath := path.Join(fileInfo.Path())
 		if fileInfo.IsDir() {
-			_, err := d.ReplicateInSecondary(fullPath)
-			return err
+			return nil
 		}
-		return d.copyToSecondary(ctx, fullPath)
+		return d.copyToSecondary(ctx, fileInfo.Path())
 	})
 }
 
