@@ -127,11 +127,8 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		return fmt.Errorf("failed to create tag for latest")
 	}
 
-	// replicate repo definitions and blobs in secondary
+	// replicate repo definitions in secondary (blobs are already written)
 	contentPaths := []string{manifestDigestRepoPath, ipfsCidRepoPath}
-	for _, blob := range blobs {
-		contentPaths = append(contentPaths, makeBlobPath(blob.Digest))
-	}
 	if err := disco.replicateInSecondary(driver, contentPaths); err != nil {
 		return err
 	}
