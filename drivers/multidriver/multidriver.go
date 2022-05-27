@@ -91,9 +91,19 @@ func (d *driver) copyToSecondary(ctx context.Context, path string) error {
 	}
 	defer secWriter.Close()
 
-	if _, err = io.Copy(secWriter, priReader); err != nil {
+	n, err := io.Copy(secWriter, priReader)
+	if err != nil {
 		return fmt.Errorf("failed to copy from primary to secondary: %v", err)
 	}
+	if err := secWriter.Commit(); err != nil {
+		secWriter.Cancel()
+		return fmt.Errorf("failed to commit secondary writer: %v", err)
+	}
+	log.WithFields(log.Fields{
+		"bytes":     n,
+		"path":      path,
+		"secondary": d.secondary.Name(),
+	}).Info("finished copying to secondary")
 
 	return nil
 }
