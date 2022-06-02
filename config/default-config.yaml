@@ -6,13 +6,27 @@ log:
     environment: development
 storage:
   ipfs:
-    # url: http://localhost:5001 # this is for working with single IPFS node
     router:
       nodes:
         - url: http://localhost:5001
         # - url: http://other.url
-  delete:
-    enabled: true
+    # cache:
+    #   s3:
+    #     accesskey: awsaccesskey
+    #     secretkey: awssecretkey
+    #     region: us-west-1
+    #     regionendpoint: http://myobjects.local
+    #     bucket: bucketname
+    #     encrypt: true
+    #     keyid: mykeyid
+    #     secure: true
+    #     v4auth: true
+    #     chunksize: 5242880
+    #     multipartcopychunksize: 33554432
+    #     multipartcopymaxconcurrency: 100
+    #     multipartcopythresholdsize: 33554432
+    #     rootdirectory: /s3/object/name/prefix
+    # redirect: https://serve.blobs.directly.from
   maintenance:
     uploadpurging:
       enabled: false

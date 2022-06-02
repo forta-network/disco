@@ -158,7 +158,8 @@ func (client *RouterClient) FilesMv(ctx context.Context, src string, dest string
 		return srcClient.FilesMv(ctx, src, dest)
 	}
 
-	// multiplexing results in different nodes - do cp and rm
+	// multiplexing results in different nodes - clear dest, do cp to dest and rm from src
+	client.FilesRm(ctx, dest, true)
 	if err := client.FilesCp(ctx, src, dest); err != nil {
 		return fmt.Errorf("cp failed while doing mv alternative: %v", err)
 	}

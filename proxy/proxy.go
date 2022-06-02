@@ -2,12 +2,13 @@ package proxy
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/forta-protocol/disco/config"
 	"github.com/forta-protocol/disco/proxy/services"
@@ -55,7 +56,7 @@ func preHandle(rw http.ResponseWriter, r *http.Request, disco *services.Disco) b
 	if (r.Method == http.MethodHead || r.Method == http.MethodGet) && strings.Contains(r.URL.Path, "/manifests/") {
 		repoName := strings.Split(r.URL.Path[1:], "/")[1]
 		if err := disco.CloneGlobalRepo(r.Context(), repoName); err != nil {
-			log.Printf("failed to clone global repo: %v", err)
+			log.WithError(err).Error("failed to clone global repo")
 			// TODO: Handle 404
 			rw.WriteHeader(500)
 			return true
@@ -68,7 +69,7 @@ func postHandle(rw http.ResponseWriter, r *http.Request, disco *services.Disco) 
 	if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/manifests/latest") {
 		repoName := strings.Split(r.URL.Path[1:], "/")[1]
 		if err := disco.MakeGlobalRepo(r.Context(), repoName); err != nil {
-			log.Printf("failed to make global repo: %v", err)
+			log.WithError(err).Error("failed to make global repo")
 		}
 	}
 }
