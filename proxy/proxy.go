@@ -10,8 +10,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/forta-protocol/disco/config"
-	"github.com/forta-protocol/disco/proxy/services"
+	"github.com/forta-network/disco/config"
+	"github.com/forta-network/disco/proxy/services"
 )
 
 // ListenAndServe starts the proxy and listens to the port.

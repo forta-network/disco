@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/forta-protocol/disco/config"
-	"github.com/forta-protocol/disco/proxy/services/interfaces"
-	"github.com/forta-protocol/disco/utils"
+	"github.com/forta-network/disco/config"
+	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
 )

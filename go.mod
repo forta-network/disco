@@ -1,4 +1,4 @@
-module github.com/forta-protocol/disco
+module github.com/forta-network/disco
 
 go 1.16
 

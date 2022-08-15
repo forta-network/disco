@@ -9,13 +9,13 @@ run: build
 
 .PHONY: docker-build
 docker-build:
-	@docker build -t forta-protocol/disco .
+	@docker build -t forta-network/disco .
 
 .PHONY: docker-run
 docker-run: docker-build
 	@docker container rm disco
 #	Use host network so we can connect to the IPFS API at localhost:5001
-	@docker run --network host --name disco forta-protocol/disco
+	@docker run --network host --name disco forta-network/disco
 
 .PHONY: mocks
 mocks:

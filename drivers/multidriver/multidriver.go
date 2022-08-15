@@ -9,7 +9,7 @@ import (
 	"path"
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
-	"github.com/forta-protocol/disco/drivers/filewriter"
+	"github.com/forta-network/disco/drivers/filewriter"
 	log "github.com/sirupsen/logrus"
 )
 
