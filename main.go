@@ -24,10 +24,10 @@ import (
 	_ "github.com/distribution/distribution/v3/registry/storage/driver/swift"
 
 	// then init() the custom drivers
-	_ "github.com/forta-protocol/disco/drivers/ipfs"
+	_ "github.com/forta-network/disco/drivers/ipfs"
 
-	"github.com/forta-protocol/disco/config"
-	"github.com/forta-protocol/disco/proxy"
+	"github.com/forta-network/disco/config"
+	"github.com/forta-network/disco/proxy"
 )
 
 func main() {

@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
-	"github.com/forta-protocol/disco/deps"
-	ipfsdriver "github.com/forta-protocol/disco/drivers/ipfs"
-	"github.com/forta-protocol/disco/drivers/multidriver"
-	"github.com/forta-protocol/disco/proxy/services/interfaces"
-	"github.com/forta-protocol/disco/utils"
+	"github.com/forta-network/disco/deps"
+	ipfsdriver "github.com/forta-network/disco/drivers/ipfs"
+	"github.com/forta-network/disco/drivers/multidriver"
+	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
 )

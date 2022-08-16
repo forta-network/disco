@@ -9,7 +9,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	interfaces "github.com/forta-protocol/disco/proxy/services/interfaces"
+	interfaces "github.com/forta-network/disco/proxy/services/interfaces"
 	gomock "github.com/golang/mock/gomock"
 	shell "github.com/ipfs/go-ipfs-api"
 )

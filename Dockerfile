@@ -1,6 +1,6 @@
 FROM golang:1.16-alpine3.13 AS build
 
-ENV DISCO_DIR /go/src/github.com/forta-protocol/disco
+ENV DISCO_DIR /go/src/github.com/forta-network/disco
 
 WORKDIR ${DISCO_DIR}
 COPY . ${DISCO_DIR}

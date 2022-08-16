@@ -3,9 +3,9 @@ package deps
 import (
 	"sync"
 
-	"github.com/forta-protocol/disco/config"
-	"github.com/forta-protocol/disco/proxy/services/interfaces"
-	"github.com/forta-protocol/disco/proxy/services/ipfsclient"
+	"github.com/forta-network/disco/config"
+	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/proxy/services/ipfsclient"
 	log "github.com/sirupsen/logrus"
 )
 

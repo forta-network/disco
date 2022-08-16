@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	mock_interfaces "github.com/forta-protocol/disco/proxy/services/interfaces/mocks"
+	mock_interfaces "github.com/forta-network/disco/proxy/services/interfaces/mocks"
 	"github.com/golang/mock/gomock"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	"github.com/stretchr/testify/require"
