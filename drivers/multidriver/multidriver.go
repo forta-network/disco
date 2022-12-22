@@ -46,12 +46,15 @@ func (d *driver) Name() string {
 // Replicate ensures that a specific piece of content is replicated in both storages.
 func (d *driver) Replicate(contentPath string) (storagedriver.FileInfo, error) {
 	ctx := context.Background() // should not be cancellable
-	d2s, err := d.replicateD1InD2(ctx, d.primary, d.secondary, contentPath)
+	_, err := d.replicateD1InD2(ctx, d.primary, d.secondary, contentPath)
 	if err != nil {
-		return d2s, err
+		return nil, err
 	}
 	_, err = d.replicateD1InD2(ctx, d.secondary, d.primary, contentPath)
-	return d2s, err
+	if err != nil {
+		return nil, err
+	}
+	return d.secondary.Stat(ctx, contentPath)
 }
 
 func (d *driver) replicateD1InD2(ctx context.Context, d1, d2 storagedriver.StorageDriver, contentPath string) (storagedriver.FileInfo, error) {
