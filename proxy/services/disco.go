@@ -47,23 +47,25 @@ func NewDiscoService() *Disco {
 // IPFS to duplicate the actual files.
 //
 // After pushing <disco_host>:1970/myrepo, it transforms the storage from:
-// 	/myrepo - QmWhatever1
-//    ..
-//      /tags
-//        /latest
+//
+//		/myrepo - QmWhatever1
+//	   ..
+//	     /tags
+//	       /latest
 //
 // to:
-//  /<cidv1(QmWhatever2)> - QmWhatever2
-//    disco.json
-//    ..
-//      /tags
-//        /latest
-//  /<digest> - QmWhatever3
-//    disco.json
-//    ..
-//      /tags
-//        /latest
-//        /<cidv1(QmWhatever2)>
+//
+//	/<cidv1(QmWhatever2)> - QmWhatever2
+//	  disco.json
+//	  ..
+//	    /tags
+//	      /latest
+//	/<digest> - QmWhatever3
+//	  disco.json
+//	  ..
+//	    /tags
+//	      /latest
+//	      /<cidv1(QmWhatever2)>
 func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	driver := ipfsdriver.Get()
 
@@ -145,6 +147,7 @@ func (disco *Disco) IsOnlyPullable(repoName string) bool {
 //  1. Check if the repo name is base32 CID v1. If not, leave the rest to the Distribution server.
 //  2. Copy the repo files from IPFS network to the IPFS node's MFS.
 //  3. Use disco.json inside the repo files to copy the blobs over the network.
+//
 // The end result in the IPFS node's MFS should look like the one from MakeGlobalRepo and all CIDs should match.
 func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error {
 	// Step #1
@@ -207,7 +210,7 @@ func (disco *Disco) replicateInSecondary(driver storagedriver.StorageDriver, con
 		return nil
 	}
 	for _, contentPath := range contentPaths {
-		_, err := multiDriver.ReplicateInSecondary(contentPath)
+		_, err := multiDriver.Replicate(contentPath)
 		if err != nil {
 			return fmt.Errorf("failed to replicate '%s' in secondary: %v", contentPath, err)
 		}
