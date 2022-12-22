@@ -6,4 +6,5 @@ __debug_bin
 log.txt
 *.log
 testdir
+dev-config.yml
 dev-config.yaml
