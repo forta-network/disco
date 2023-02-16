@@ -50,10 +50,11 @@ func (d *driver) Replicate(contentPath string) (storagedriver.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = d.replicate(ctx, d.secondary, d.primary, contentPath)
-	if err != nil {
-		return nil, err
-	}
+	// TODO: Enabling this causes hitting the IPFS nodes often. Decide what to do with this later.
+	// _, err = d.replicate(ctx, d.secondary, d.primary, contentPath)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	s, err := d.secondary.Stat(ctx, contentPath)
 	return s, err
 }
