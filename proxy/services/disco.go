@@ -18,18 +18,18 @@ import (
 // Disco service allows us to do Disco things on top of the
 // Distribution server.
 type Disco struct {
-	api       interfaces.IPFSClient
-	getDriver getDriverFunc
+	getIpfsClient getIpfsClientFunc
+	getDriver     getDriverFunc
 }
 
+type getIpfsClientFunc func() interfaces.IPFSClient
 type getDriverFunc func() storagedriver.StorageDriver
 
 // NewDiscoService creates a new Disco service.
 func NewDiscoService() *Disco {
-	client := deps.Get()
 	return &Disco{
-		api:       client,
-		getDriver: ipfs.Get,
+		getIpfsClient: deps.Get,
+		getDriver:     ipfs.Get,
 	}
 }
 
@@ -71,6 +71,7 @@ func NewDiscoService() *Disco {
 //	      /latest
 //	      /<cidv1(QmWhatever2)>
 func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
+	ipfsClient := disco.getIpfsClient()
 	driver := disco.getDriver()
 
 	uploadRepoPath := makeRepoPath(repoName)
@@ -114,7 +115,7 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	}
 
 	// Step #2
-	nodeClient, err := disco.api.GetClientFor(ctx, uploadRepoPath)
+	nodeClient, err := ipfsClient.GetClientFor(ctx, uploadRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed to find client for original repo provider (before copying): %v", err)
 	}
@@ -131,7 +132,7 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 
 	// Step #3
 	// make blob digest hex multiplexing logic work
-	nodeClient, err = disco.api.GetClientFor(ctx, manifestDigestRepoPath)
+	nodeClient, err = ipfsClient.GetClientFor(ctx, manifestDigestRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed to find client for destination repo provider (before copying digest-name repo): %v", err)
 	}
@@ -173,7 +174,9 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		return nil
 	}
 
+	ipfsClient := disco.getIpfsClient()
 	driver := disco.getDriver()
+
 	stat, err := driver.Stat(ctx, makeDiscoFilePath(repoName))
 	switch err.(type) {
 	case nil:
@@ -196,7 +199,7 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 	}
 	for _, blobCid := range file.Blobs {
 		// get the client without the provider: causes blobs to be replicated after increasing the amountof IPFS nodes
-		blobNodeClient, err := disco.api.GetClientFor(ctx, makeBlobPath(blobCid.Digest))
+		blobNodeClient, err := ipfsClient.GetClientFor(ctx, makeBlobPath(blobCid.Digest))
 		if err != nil {
 			return fmt.Errorf("failed to get blob node client: %v", err)
 		}

@@ -12,6 +12,7 @@ import (
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	mock_multidriver "github.com/forta-network/disco/drivers/multidriver/mocks"
+	"github.com/forta-network/disco/proxy/services/interfaces"
 	mock_interfaces "github.com/forta-network/disco/proxy/services/interfaces/mocks"
 	"github.com/golang/mock/gomock"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
@@ -77,7 +78,9 @@ func (s *Suite) SetupTest() {
 	s.ipfsClient.EXPECT().GetClientFor(gomock.Any(), gomock.Any()).Return(s.ipfsNode, nil).AnyTimes()
 	s.driver = mock_multidriver.NewMockMultiDriver(ctrl)
 	s.disco = &Disco{
-		api: s.ipfsClient,
+		getIpfsClient: func() interfaces.IPFSClient {
+			return s.ipfsClient
+		},
 		getDriver: func() storagedriver.StorageDriver {
 			return s.driver
 		},

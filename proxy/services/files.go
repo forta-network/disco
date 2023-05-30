@@ -15,7 +15,7 @@ import (
 )
 
 func (disco *Disco) digestFromLink(ctx context.Context, path string) (string, error) {
-	r, err := disco.api.FilesRead(ctx, path)
+	r, err := disco.getIpfsClient().FilesRead(ctx, path)
 	if err != nil {
 		return "", err
 	}
@@ -37,7 +37,7 @@ type imageManifest struct {
 }
 
 func (disco *Disco) readManifestFromIPFS(ctx context.Context, digest string) (*imageManifest, error) {
-	r, err := disco.api.FilesRead(ctx, makeBlobPath(digest))
+	r, err := disco.getIpfsClient().FilesRead(ctx, makeBlobPath(digest))
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (disco *Disco) readManifestFromIPFS(ctx context.Context, digest string) (*i
 }
 
 func (disco *Disco) getCid(ctx context.Context, path string) (string, error) {
-	stat, err := disco.api.FilesStat(ctx, path)
+	stat, err := disco.getIpfsClient().FilesStat(ctx, path)
 	if err != nil {
 		return "", fmt.Errorf("failed to get cid for %s: %v", path, err)
 	}
@@ -133,14 +133,14 @@ func (disco *Disco) writeDiscoFile(ctx context.Context, repoName string, discoFi
 	if err := json.NewEncoder(&buf).Encode(discoFile); err != nil {
 		return err
 	}
-	if err := disco.api.FilesWrite(ctx, makeDiscoFilePath(repoName), &buf, ipfsapi.FilesWrite.Create(true)); err != nil {
+	if err := disco.getIpfsClient().FilesWrite(ctx, makeDiscoFilePath(repoName), &buf, ipfsapi.FilesWrite.Create(true)); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (disco *Disco) readDiscoFile(ctx context.Context, repoName string) (*discoFile, error) {
-	nodeClient, err := disco.api.GetClientFor(ctx, makeRepoPath(repoName))
+	nodeClient, err := disco.getIpfsClient().GetClientFor(ctx, makeRepoPath(repoName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to route to provider client (before cloning global): %v", err)
 	}
@@ -167,7 +167,7 @@ func (disco *Disco) readDiscoFile(ctx context.Context, repoName string) (*discoF
 }
 
 func (disco *Disco) createTagForLatest(ctx context.Context, repoName, tag string) error {
-	return disco.api.FilesCp(ctx, makeTagPathFor(repoName, "latest"), makeTagPathFor(repoName, tag))
+	return disco.getIpfsClient().FilesCp(ctx, makeTagPathFor(repoName, "latest"), makeTagPathFor(repoName, tag))
 }
 
 func (disco *Disco) hasFile(ctx context.Context, client interfaces.IPFSFilesAPI, path string) (bool, error) {
