@@ -15,7 +15,8 @@ import (
 
 // MultiDriver combines and deals with multiple drivers.
 type MultiDriver interface {
-	Replicate(contentPath string) (storagedriver.FileInfo, error)
+	ReplicateInPrimary(contentPath string) (storagedriver.FileInfo, error)
+	ReplicateInSecondary(contentPath string) (storagedriver.FileInfo, error)
 	storagedriver.StorageDriver
 }
 
@@ -29,8 +30,8 @@ type driver struct {
 }
 
 // New creates a new multi-driver.
-func New(redirectTo url.URL, primary storagedriver.StorageDriver, secondary storagedriver.StorageDriver) storagedriver.StorageDriver {
-	return &driver{redirectTo: &redirectTo, primary: primary, secondary: secondary}
+func New(redirectTo *url.URL, primary storagedriver.StorageDriver, secondary storagedriver.StorageDriver) storagedriver.StorageDriver {
+	return &driver{redirectTo: redirectTo, primary: primary, secondary: secondary}
 }
 
 // Is checks if the argument is a multi-driver implementation.
@@ -39,22 +40,31 @@ func Is(driver interface{}) (MultiDriver, bool) {
 	return d, ok
 }
 
+// Name returns the name of the driver by implementing storagedriver.Storagedriver.
 func (d *driver) Name() string {
 	return fmt.Sprintf("%s+%s", d.primary.Name(), d.secondary.Name())
 }
 
-// Replicate ensures that a specific piece of content is replicated in both storages.
-func (d *driver) Replicate(contentPath string) (storagedriver.FileInfo, error) {
+// ReplicateInPrimary ensures that a specific piece of content is replicated from the secondary
+// store to the primary.
+func (d *driver) ReplicateInPrimary(contentPath string) (storagedriver.FileInfo, error) {
+	ctx := context.Background() // should not be cancellable
+	_, err := d.replicate(ctx, d.secondary, d.primary, contentPath)
+	if err != nil {
+		return nil, err
+	}
+	s, err := d.primary.Stat(ctx, contentPath)
+	return s, err
+}
+
+// ReplicateInSecondary ensures that a specific piece of content is replicated from the primary
+// store to the secondary.
+func (d *driver) ReplicateInSecondary(contentPath string) (storagedriver.FileInfo, error) {
 	ctx := context.Background() // should not be cancellable
 	_, err := d.replicate(ctx, d.primary, d.secondary, contentPath)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Enabling this causes hitting the IPFS nodes often. Decide what to do with this later.
-	// _, err = d.replicate(ctx, d.secondary, d.primary, contentPath)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	s, err := d.secondary.Stat(ctx, contentPath)
 	return s, err
 }
@@ -119,7 +129,7 @@ func (d *driver) syncD1ToD2(ctx context.Context, d1, d2 storagedriver.StorageDri
 		"path":    path,
 		"driver1": d1.Name(),
 		"driver2": d2.Name(),
-	}).Info("finished copying to the second driver")
+	}).Debug("finished copying to the second driver")
 
 	return nil
 }
@@ -127,7 +137,7 @@ func (d *driver) syncD1ToD2(ctx context.Context, d1, d2 storagedriver.StorageDri
 // GetContent retrieves the content stored at "path" as a []byte.
 // This should primarily be used for small objects.
 func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
-	if _, err := d.Replicate(path); err != nil {
+	if _, err := d.ReplicateInSecondary(path); err != nil {
 		return nil, err
 	}
 	return d.secondary.GetContent(ctx, path)
@@ -149,7 +159,7 @@ func (d *driver) PutContent(ctx context.Context, path string, content []byte) er
 // with a given byte offset.
 // May be used to resume reading a stream by providing a nonzero offset.
 func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
-	if _, err := d.Replicate(path); err != nil {
+	if _, err := d.ReplicateInSecondary(path); err != nil {
 		return nil, err
 	}
 	return d.secondary.Reader(ctx, path, offset)
@@ -175,7 +185,7 @@ func (d *driver) Writer(ctx context.Context, path string, append bool) (storaged
 // Stat retrieves the FileInfo for the given path, including the current
 // size in bytes and the creation time.
 func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo, error) {
-	secStat, err := d.Replicate(path)
+	secStat, err := d.ReplicateInSecondary(path)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +199,7 @@ func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo,
 // List returns a list of the objects that are direct descendants of the
 // given path.
 func (d *driver) List(ctx context.Context, path string) ([]string, error) {
-	if _, err := d.Replicate(path); err != nil {
+	if _, err := d.ReplicateInSecondary(path); err != nil {
 		return nil, err
 	}
 	return d.secondary.List(ctx, path)

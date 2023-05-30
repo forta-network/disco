@@ -14,26 +14,27 @@ import (
 	"github.com/forta-network/disco/proxy/services"
 )
 
-// ListenAndServe starts the proxy and listens to the port.
-func ListenAndServe() error {
+// New creates a new Disco proxy which executes pre and post hooks before/after communication
+// with the distribution server is done.
+func New() (*http.Server, error) {
 	distrUrl, err := url.Parse(fmt.Sprintf("http://localhost%s", config.DistributionConfig.HTTP.Addr))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rp := httputil.NewSingleHostReverseProxy(distrUrl)
 
-	return (&http.Server{
+	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", config.Vars.DiscoPort),
-		Handler:      NewHandler(rp, services.NewDiscoService()),
+		Handler:      newHandler(rp, services.NewDiscoService()),
 		ReadTimeout:  time.Minute * 10,
 		WriteTimeout: time.Minute * 10,
 		IdleTimeout:  time.Second * 30,
-	}).ListenAndServe()
+	}, nil
 }
 
-// NewHandler creates a new handler which consumes Disco service.
-func NewHandler(rp *httputil.ReverseProxy, disco *services.Disco) http.Handler {
+// newHandler creates a new handler which consumes Disco service.
+func newHandler(rp *httputil.ReverseProxy, disco *services.Disco) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if done := preHandle(rw, r, disco); done {
 			return

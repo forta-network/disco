@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/forta-network/disco/proxy/services/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ type imageManifest struct {
 	} `json:"layers"`
 }
 
-func (disco *Disco) readManifestWithDigest(ctx context.Context, digest string) (*imageManifest, error) {
+func (disco *Disco) readManifestFromIPFS(ctx context.Context, digest string) (*imageManifest, error) {
 	r, err := disco.api.FilesRead(ctx, makeBlobPath(digest))
 	if err != nil {
 		return nil, err
@@ -56,8 +57,8 @@ func (disco *Disco) getBlobCid(ctx context.Context, digest string) (string, erro
 	return disco.getCid(ctx, makeBlobPath(digest))
 }
 
-func (disco *Disco) populateBlobsDigests(ctx context.Context, manifestDigest string) ([]*blobCid, error) {
-	manifest, err := disco.readManifestWithDigest(ctx, manifestDigest)
+func (disco *Disco) populateBlobsWithCids(ctx context.Context, manifestDigest string) ([]*blobCid, error) {
+	manifest, err := disco.readManifestFromIPFS(ctx, manifestDigest)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +95,28 @@ func (disco *Disco) populateBlobsDigests(ctx context.Context, manifestDigest str
 		})
 	}
 	return blobs, nil
+}
+
+func (disco *Disco) readManifestUsingDriver(ctx context.Context, driver storagedriver.StorageDriver, digest string) (*imageManifest, error) {
+	r, err := driver.Reader(ctx, makeBlobPath(digest), 0)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	var manifest imageManifest
+	return &manifest, json.NewDecoder(r).Decode(&manifest)
+}
+
+func (disco *Disco) populateBlobFilePaths(ctx context.Context, driver storagedriver.StorageDriver, manifestDigest string) (blobs []string, err error) {
+	manifest, err := disco.readManifestUsingDriver(ctx, driver, manifestDigest)
+	if err != nil {
+		return nil, err
+	}
+	blobs = append(blobs, makeBlobPath(manifestDigest), makeBlobPath(manifest.Config.Digest[7:]))
+	for _, layer := range manifest.Layers {
+		blobs = append(blobs, makeBlobPath(layer.Digest[7:]))
+	}
+	return
 }
 
 type blobCid struct {

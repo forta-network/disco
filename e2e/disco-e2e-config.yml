@@ -1,0 +1,28 @@
+version: 0.1
+log:
+  level: info
+  fields:
+    service: disco
+    environment: development
+storage:
+  ipfs:
+    router:
+      nodes:
+        - url: http://localhost:5001
+    cache:
+      filesystem:
+        rootdirectory: ./testdir/cache
+  delete:
+    enabled: false
+  maintenance:
+    uploadpurging:
+      enabled: false
+http:
+  addr: :5000
+  debug:
+    addr: :5050
+    prometheus:
+      enabled: true
+      path: /metrics
+  headers:
+    X-Content-Type-Options: [nosniff]

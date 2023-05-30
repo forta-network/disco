@@ -86,7 +86,18 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		return nil
 	}
 
-	blobs, err := disco.populateBlobsDigests(ctx, manifestDigest)
+	// pushes can be successful after checks on the secondary driver
+	// so ensure that primary storage is up-to-date and avoid false positives
+	contentPaths, err := disco.populateBlobFilePaths(ctx, driver, manifestDigest)
+	if err != nil {
+		return fmt.Errorf("failed to populate blob file paths: %v", err)
+	}
+	contentPaths = append(contentPaths, uploadRepoPath)
+	if err := disco.replicateInPrimary(driver, contentPaths); err != nil {
+		return nil
+	}
+
+	blobs, err := disco.populateBlobsWithCids(ctx, manifestDigest)
 	if err != nil {
 		return fmt.Errorf("failed to populate blobs: %v", err)
 	}
@@ -130,7 +141,7 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	}
 
 	// replicate repo definitions in secondary (blobs are already written)
-	contentPaths := []string{manifestDigestRepoPath, ipfsCidRepoPath}
+	contentPaths = []string{manifestDigestRepoPath, ipfsCidRepoPath}
 	if err := disco.replicateInSecondary(driver, contentPaths); err != nil {
 		return err
 	}
@@ -210,9 +221,24 @@ func (disco *Disco) replicateInSecondary(driver storagedriver.StorageDriver, con
 		return nil
 	}
 	for _, contentPath := range contentPaths {
-		_, err := multiDriver.Replicate(contentPath)
+		_, err := multiDriver.ReplicateInSecondary(contentPath)
 		if err != nil {
 			return fmt.Errorf("failed to replicate '%s' in secondary: %v", contentPath, err)
+		}
+	}
+
+	return nil
+}
+
+func (disco *Disco) replicateInPrimary(driver storagedriver.StorageDriver, contentPaths []string) error {
+	multiDriver, ok := multidriver.Is(driver)
+	if !ok {
+		return nil
+	}
+	for _, contentPath := range contentPaths {
+		_, err := multiDriver.ReplicateInPrimary(contentPath)
+		if err != nil {
+			return fmt.Errorf("failed to replicate '%s' in primary: %v", contentPath, err)
 		}
 	}
 

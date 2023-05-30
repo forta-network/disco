@@ -24,3 +24,8 @@ mocks:
 .PHONY: test
 test:
 	@go test -v -count=1 ./...
+
+.PHONY: e2e
+e2e:
+	docker build -t localhost:1970/test -f e2e/Dockerfile.empty ./e2e
+	cd e2e && E2E_TEST=1 go test -v .

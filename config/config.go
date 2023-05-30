@@ -14,7 +14,6 @@ import (
 
 type envVars struct {
 	RegistryConfigurationPath string `envconfig:"registry_configuration_path" default:"./config/default-config.yaml"`
-	IPFSURL                   string `envconfig:"ipfs_url"`
 	DiscoPort                 int    `envconfig:"disco_port" default:"1970"`
 }
 
@@ -69,9 +68,6 @@ func Init() error {
 	if ipfsConfig["router"] == nil {
 		return errors.New("please specify 'router' in ipfs driver config")
 	}
-	if len(Vars.IPFSURL) > 0 {
-		ipfsConfig["url"] = Vars.IPFSURL
-	}
 	if ipfsConfig["router"] != nil {
 		file, _ = os.Open(Vars.RegistryConfigurationPath)
 		defer file.Close()
@@ -81,9 +77,11 @@ func Init() error {
 		}
 		Router = customConfig.Storage.IPFS.Router
 		Cache = customConfig.Storage.IPFS.Cache
-		RedirectTo, err = url.Parse(customConfig.Storage.IPFS.Redirect)
-		if err != nil {
-			return err
+		if len(customConfig.Storage.IPFS.Redirect) > 0 {
+			RedirectTo, err = url.Parse(customConfig.Storage.IPFS.Redirect)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
