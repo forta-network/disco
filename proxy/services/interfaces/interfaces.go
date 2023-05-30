@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 )
 
@@ -23,4 +24,9 @@ type IPFSFilesAPI interface {
 	FilesMkdir(ctx context.Context, path string, options ...ipfsapi.FilesOpt) error
 	FilesLs(ctx context.Context, path string, options ...ipfsapi.FilesOpt) ([]*ipfsapi.MfsLsEntry, error)
 	FilesMv(ctx context.Context, src string, dest string) error
+}
+
+// StorageDriver is storage driver interface.
+type StorageDriver interface {
+	storagedriver.StorageDriver
 }

@@ -7,7 +7,7 @@ import (
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/forta-network/disco/deps"
-	ipfsdriver "github.com/forta-network/disco/drivers/ipfs"
+	"github.com/forta-network/disco/drivers/ipfs"
 	"github.com/forta-network/disco/drivers/multidriver"
 	"github.com/forta-network/disco/proxy/services/interfaces"
 	"github.com/forta-network/disco/utils"
@@ -18,14 +18,18 @@ import (
 // Disco service allows us to do Disco things on top of the
 // Distribution server.
 type Disco struct {
-	api interfaces.IPFSClient
+	api       interfaces.IPFSClient
+	getDriver getDriverFunc
 }
+
+type getDriverFunc func() storagedriver.StorageDriver
 
 // NewDiscoService creates a new Disco service.
 func NewDiscoService() *Disco {
 	client := deps.Get()
 	return &Disco{
-		api: client,
+		api:       client,
+		getDriver: ipfs.Get,
 	}
 }
 
@@ -67,12 +71,14 @@ func NewDiscoService() *Disco {
 //	      /latest
 //	      /<cidv1(QmWhatever2)>
 func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
-	driver := ipfsdriver.Get()
+	driver := disco.getDriver()
 
 	uploadRepoPath := makeRepoPath(repoName)
 
 	// Step #5
-	defer driver.Delete(ctx, uploadRepoPath)
+	if !utils.IsCIDv1(repoName) && !utils.IsDigestHex(repoName) {
+		defer driver.Delete(ctx, uploadRepoPath)
+	}
 
 	// Step #1
 	manifestDigest, err := disco.digestFromLink(ctx, makeManifestLinkPath(repoName))
@@ -167,7 +173,7 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		return nil
 	}
 
-	driver := ipfsdriver.Get()
+	driver := disco.getDriver()
 	stat, err := driver.Stat(ctx, makeDiscoFilePath(repoName))
 	switch err.(type) {
 	case nil:

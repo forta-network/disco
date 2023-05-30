@@ -68,6 +68,13 @@ func (df *driverFactory) Create(parameters map[string]interface{}) (storagedrive
 	return defaultDriver, err
 }
 
+// New creates a new IPFS-only driver.
+func New(api interfaces.IPFSClient) storagedriver.StorageDriver {
+	return &driver{
+		api: api,
+	}
+}
+
 // Get returns the already created default driver.
 func Get() storagedriver.StorageDriver {
 	return defaultDriver

@@ -5,9 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"testing"
+	"time"
 
+	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
+	mock_multidriver "github.com/forta-network/disco/drivers/multidriver/mocks"
 	mock_interfaces "github.com/forta-network/disco/proxy/services/interfaces/mocks"
 	"github.com/golang/mock/gomock"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
@@ -55,6 +59,8 @@ type Suite struct {
 	r   *require.Assertions
 
 	ipfsClient *mock_interfaces.MockIPFSClient
+	ipfsNode   *mock_interfaces.MockIPFSFilesAPI
+	driver     *mock_multidriver.MockMultiDriver
 
 	disco *Disco
 
@@ -65,9 +71,16 @@ type Suite struct {
 func (s *Suite) SetupTest() {
 	s.ctx = context.Background()
 	s.r = require.New(s.T())
-	s.ipfsClient = mock_interfaces.NewMockIPFSClient(gomock.NewController(s.T()))
+	ctrl := gomock.NewController(s.T())
+	s.ipfsClient = mock_interfaces.NewMockIPFSClient(ctrl)
+	s.ipfsNode = mock_interfaces.NewMockIPFSFilesAPI(ctrl)
+	s.ipfsClient.EXPECT().GetClientFor(gomock.Any(), gomock.Any()).Return(s.ipfsNode, nil).AnyTimes()
+	s.driver = mock_multidriver.NewMockMultiDriver(ctrl)
 	s.disco = &Disco{
 		api: s.ipfsClient,
+		getDriver: func() storagedriver.StorageDriver {
+			return s.driver
+		},
 	}
 }
 
@@ -92,42 +105,81 @@ func (bm *bufferMatcher) String() string {
 	return (*bytes.Buffer)(bm).String()
 }
 
+type fileInfo struct {
+	path  string
+	size  int64
+	isDir bool
+}
+
+func (fi *fileInfo) Path() string {
+	return fi.path
+}
+
+func (fi *fileInfo) Size() int64 {
+	return fi.size
+}
+
+func (fi *fileInfo) ModTime() time.Time {
+	return time.Time{}
+}
+
+func (fi *fileInfo) IsDir() bool {
+	return fi.isDir
+}
+
 func (s *Suite) TestMakeGlobalRepo() {
 	// Given that a repo was pushed successfully
 	// When the repo is intended to be made global automatically
-	// Then it should find the manifest digest from the storage
+	// Then it should find out that there is no repo with digest as the name yet
+	s.driver.EXPECT().Stat(gomock.Any(), makeRepoPath(testManifestDigest)).Return(&fileInfo{
+		path:  makeRepoPath(testManifestDigest),
+		size:  0,
+		isDir: false,
+	}, nil)
+	// And it should find the manifest digest
+	s.driver.EXPECT().Reader(gomock.Any(), makeBlobPath(testManifestDigest), int64(0)).Return(io.NopCloser(bytes.NewBufferString(testManifest)), nil)
+	// And replicate each blob and the uploaded repository in primary
+	s.driver.EXPECT().ReplicateInPrimary(gomock.Any()).Times(3) // manifest, config and layer
+	s.driver.EXPECT().ReplicateInPrimary(makeRepoPath("myrepo"))
+
+	// And find the manifest link for the upload
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/myrepo/_manifests/tags/latest/current/link").
 		Return(ioutil.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
-	// And expect that there is no repo with digest as the name yet
-	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/repositories/"+testManifestDigest).
-		Return(&ipfsapi.FilesStatObject{CumulativeSize: 0}, nil)
+	// s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/repositories/"+testManifestDigest).
+	// 	Return(&ipfsapi.FilesStatObject{CumulativeSize: 0}, nil)
 	// And find the manifest blob from the repo
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest+"/data").
 		Return(ioutil.NopCloser(bytes.NewBufferString(testManifest)), nil)
 	// And find the CIDs for all of the blobs
-	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest+"/data").
-		Return(&ipfsapi.FilesStatObject{Hash: testManifestCid}, nil)
-	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/blobs/sha256/"+testConfigDigest[:2]+"/"+testConfigDigest+"/data").
-		Return(&ipfsapi.FilesStatObject{Hash: testConfigFileCid}, nil)
 	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/blobs/sha256/"+testLayerDigest[:2]+"/"+testLayerDigest+"/data").
 		Return(&ipfsapi.FilesStatObject{Hash: testLayerCid}, nil)
+	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/blobs/sha256/"+testConfigDigest[:2]+"/"+testConfigDigest+"/data").
+		Return(&ipfsapi.FilesStatObject{Hash: testConfigFileCid}, nil)
+	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest+"/data").
+		Return(&ipfsapi.FilesStatObject{Hash: testManifestCid}, nil)
 	// And write a Disco file
 	s.ipfsClient.EXPECT().FilesWrite(s.ctx, registryBase+"/repositories/myrepo/disco.json", (*bufferMatcher)(bytes.NewBufferString(testDiscoFile)), gomock.Any()).
 		Return(nil)
-	// And duplicate the repo with digest name
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, registryBase+"/repositories/myrepo", registryBase+"/repositories/"+testManifestDigest).
-		Return(nil)
+
 	// And get the CID for the repo and duplicate with the base32 CID v1
 	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/repositories/myrepo").
 		Return(&ipfsapi.FilesStatObject{Hash: testCidv0}, nil)
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, registryBase+"/repositories/myrepo", registryBase+"/repositories/"+testCidv1).
+	s.ipfsNode.EXPECT().FilesCp(s.ctx, makeRepoPath("myrepo"), makeRepoPath(testCidv1)).
+		Return(nil)
+	// And duplicate the repo with digest name
+	s.ipfsNode.EXPECT().FilesMkdir(s.ctx, repositoriesBase, gomock.Any()).Return(nil)
+	s.ipfsNode.EXPECT().FilesRm(s.ctx, makeRepoPath(testManifestDigest), true).Return(nil)
+	s.ipfsNode.EXPECT().FilesCp(s.ctx, fmt.Sprintf("/ipfs/%s", testCidv0), makeRepoPath(testManifestDigest)).
 		Return(nil)
 	// And copy the "latest" tag as CID in the digest repo
 	s.ipfsClient.EXPECT().FilesCp(s.ctx, registryBase+"/repositories/"+testManifestDigest+"/_manifests/tags/latest",
 		registryBase+"/repositories/"+testManifestDigest+"/_manifests/tags/"+testCidv1).
 		Return(nil)
-	// And finally remove the pushed repo from MFS
-	s.ipfsClient.EXPECT().FilesRm(s.ctx, registryBase+"/repositories/myrepo", true).Return(nil)
+	// And remove the pushed repo from MFS
+	s.driver.EXPECT().Delete(s.ctx, makeRepoPath("myrepo")).Return(nil)
+	// And replicate the files in the secondary storage
+	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testManifestDigest)).Return(nil, nil)
+	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testCidv1)).Return(nil, nil)
 
 	s.disco.MakeGlobalRepo(s.ctx, "myrepo")
 }
@@ -137,13 +189,17 @@ func (s *Suite) TestAlreadyMadeGlobal() {
 	// And made global previously
 	// When the repo is inteded to be made global automatically again
 	// Then it should find the manifest digest from the storage
-	s.ipfsClient.EXPECT().FilesRead(s.ctx, fmt.Sprintf(registryBase+"/repositories/myrepo/_manifests/tags/latest/current/link")).
+	s.ipfsClient.EXPECT().FilesRead(s.ctx, makeRepoPath("myrepo")+"/_manifests/tags/latest/current/link").
 		Return(ioutil.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
-	// And expect that there is no repo with digest as the name yet
-	s.ipfsClient.EXPECT().FilesStat(s.ctx, fmt.Sprintf(registryBase+"/repositories/"+testManifestDigest)).
-		Return(&ipfsapi.FilesStatObject{CumulativeSize: 10101010}, nil)
+	// And expect that there is a repo with digest as the name
+	s.driver.EXPECT().Stat(s.ctx, makeRepoPath(testManifestDigest)).
+		Return(&fileInfo{
+			path:  makeRepoPath(testManifestDigest),
+			size:  1,
+			isDir: false,
+		}, nil)
 	// And finally remove the pushed repo from MFS
-	s.ipfsClient.EXPECT().FilesRm(s.ctx, registryBase+"/repositories/myrepo", true).Return(nil)
+	s.driver.EXPECT().Delete(s.ctx, makeRepoPath("myrepo")).Return(nil)
 
 	s.disco.MakeGlobalRepo(s.ctx, "myrepo")
 }
@@ -151,34 +207,38 @@ func (s *Suite) TestAlreadyMadeGlobal() {
 func (s *Suite) TestCloneGlobalRepo() {
 	// Given that a repo was made global previously
 	// When the repo is pulled with base32 CID v1
-	// Then it should try to find the manifest digest first
-	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/"+testCidv1+"/_manifests/tags/latest/current/link").
-		Return(nil, errors.New("file not found error"))
-	// And try to create the repositories base dir in MFS and ignore errors
-	s.ipfsClient.EXPECT().FilesMkdir(s.ctx, registryBase+"/repositories", gomock.Any()).
-		Return(errors.New("already exists error"))
-	// And try to copy the repo from IPFS network
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, "/ipfs/"+testCidv1, registryBase+"/repositories/"+testCidv1).
-		Return(nil)
-	// And try to read the manifest digest again
-	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/"+testCidv1+"/_manifests/tags/latest/current/link").
-		Return(ioutil.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
-	// And read the Disco file and copy all of the blobs from the IPFS network
-	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/"+testCidv1+"/disco.json").
-		Return(ioutil.NopCloser(bytes.NewBuffer([]byte(testDiscoFile))), nil)
-	s.ipfsClient.EXPECT().FilesMkdir(s.ctx, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest, gomock.Any()).Return(nil)
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, "/ipfs/"+testManifestCid, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest+"/data").Return(nil)
-	s.ipfsClient.EXPECT().FilesMkdir(s.ctx, registryBase+"/blobs/sha256/"+testConfigDigest[:2]+"/"+testConfigDigest, gomock.Any()).Return(nil)
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, "/ipfs/"+testConfigFileCid, registryBase+"/blobs/sha256/"+testConfigDigest[:2]+"/"+testConfigDigest+"/data").Return(nil)
-	s.ipfsClient.EXPECT().FilesMkdir(s.ctx, registryBase+"/blobs/sha256/"+testLayerDigest[:2]+"/"+testLayerDigest, gomock.Any()).Return(nil)
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, "/ipfs/"+testLayerCid, registryBase+"/blobs/sha256/"+testLayerDigest[:2]+"/"+testLayerDigest+"/data").Return(nil)
-	// And copy the repo with digest name
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, registryBase+"/repositories/"+testCidv1, registryBase+"/repositories/"+testManifestDigest).
-		Return(nil)
-	// And copy the "latest" tag as CID in the digest repo
-	s.ipfsClient.EXPECT().FilesCp(s.ctx, registryBase+"/repositories/"+testManifestDigest+"/_manifests/tags/latest",
-		registryBase+"/repositories/"+testManifestDigest+"/_manifests/tags/"+testCidv1).
-		Return(nil)
+	// Then it should try to find the disco file first and not find it
+	s.driver.EXPECT().Stat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(nil, storagedriver.PathNotFoundError{
+		Path: makeDiscoFilePath(testCidv1),
+	})
+	// And clone the image repository from the ipfs network to the local ipfs node
+	s.ipfsNode.EXPECT().FilesStat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(nil, errors.New("does not exist"))
+	s.ipfsNode.EXPECT().FilesMkdir(gomock.Any(), repositoriesBase, gomock.Any())
+	s.ipfsNode.EXPECT().FilesCp(gomock.Any(), fmt.Sprintf("/ipfs/%s", testCidv1), makeRepoPath(testCidv1))
+	s.ipfsNode.EXPECT().FilesRead(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(
+		io.NopCloser(bytes.NewBufferString(testDiscoFile)),
+		nil,
+	)
+
+	// And clone the blobs from the ipfs network to the local ipfs node
+
+	s.ipfsNode.EXPECT().FilesStat(gomock.Any(), makeBlobPath(testManifestDigest)).Return(nil, errors.New("does not exist"))
+	s.ipfsNode.EXPECT().FilesMkdir(gomock.Any(), makeBlobDirPath(testManifestDigest), gomock.Any())
+	s.ipfsNode.EXPECT().FilesCp(gomock.Any(), fmt.Sprintf("/ipfs/%s", testManifestCid), makeBlobPath(testManifestDigest))
+
+	s.ipfsNode.EXPECT().FilesStat(gomock.Any(), makeBlobPath(testConfigDigest)).Return(nil, errors.New("does not exist"))
+	s.ipfsNode.EXPECT().FilesMkdir(gomock.Any(), makeBlobDirPath(testConfigDigest), gomock.Any())
+	s.ipfsNode.EXPECT().FilesCp(gomock.Any(), fmt.Sprintf("/ipfs/%s", testConfigFileCid), makeBlobPath(testConfigDigest))
+
+	s.ipfsNode.EXPECT().FilesStat(gomock.Any(), makeBlobPath(testLayerDigest)).Return(nil, errors.New("does not exist"))
+	s.ipfsNode.EXPECT().FilesMkdir(gomock.Any(), makeBlobDirPath(testLayerDigest), gomock.Any())
+	s.ipfsNode.EXPECT().FilesCp(gomock.Any(), fmt.Sprintf("/ipfs/%s", testLayerCid), makeBlobPath(testLayerDigest))
+
+	// And replicate the cloned files to the secondary storage
+	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testCidv1)).Return(nil, nil)
+	s.driver.EXPECT().ReplicateInSecondary(makeBlobPath(testManifestDigest)).Return(nil, nil)
+	s.driver.EXPECT().ReplicateInSecondary(makeBlobPath(testConfigDigest)).Return(nil, nil)
+	s.driver.EXPECT().ReplicateInSecondary(makeBlobPath(testLayerDigest)).Return(nil, nil)
 
 	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
 }
@@ -187,9 +247,12 @@ func (s *Suite) TestAlreadyCloned() {
 	// Given that a repo was made global previously
 	// And already cloned and pulled
 	// When the repo is pulled with base32 CID v1 again
-	// Then it should try to find the manifest digest and be done when there are no errors
-	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/"+testCidv1+"/_manifests/tags/latest/current/link").
-		Return(ioutil.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
+	// Then it should find the disco file and abort cloning again
+	s.driver.EXPECT().Stat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(&fileInfo{
+		path:  makeDiscoFilePath(testCidv1),
+		size:  1,
+		isDir: false,
+	}, nil)
 
 	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
 }

@@ -9,6 +9,7 @@ import (
 	io "io"
 	reflect "reflect"
 
+	driver "github.com/distribution/distribution/v3/registry/storage/driver"
 	interfaces "github.com/forta-network/disco/proxy/services/interfaces"
 	gomock "github.com/golang/mock/gomock"
 	shell "github.com/ipfs/go-ipfs-api"
@@ -353,4 +354,187 @@ func (mr *MockIPFSFilesAPIMockRecorder) FilesWrite(ctx, path, data interface{}, 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, path, data}, options...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilesWrite", reflect.TypeOf((*MockIPFSFilesAPI)(nil).FilesWrite), varargs...)
+}
+
+// MockStorageDriver is a mock of StorageDriver interface.
+type MockStorageDriver struct {
+	ctrl     *gomock.Controller
+	recorder *MockStorageDriverMockRecorder
+}
+
+// MockStorageDriverMockRecorder is the mock recorder for MockStorageDriver.
+type MockStorageDriverMockRecorder struct {
+	mock *MockStorageDriver
+}
+
+// NewMockStorageDriver creates a new mock instance.
+func NewMockStorageDriver(ctrl *gomock.Controller) *MockStorageDriver {
+	mock := &MockStorageDriver{ctrl: ctrl}
+	mock.recorder = &MockStorageDriverMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStorageDriver) EXPECT() *MockStorageDriverMockRecorder {
+	return m.recorder
+}
+
+// Delete mocks base method.
+func (m *MockStorageDriver) Delete(ctx context.Context, path string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, path)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockStorageDriverMockRecorder) Delete(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStorageDriver)(nil).Delete), ctx, path)
+}
+
+// GetContent mocks base method.
+func (m *MockStorageDriver) GetContent(ctx context.Context, path string) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContent", ctx, path)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContent indicates an expected call of GetContent.
+func (mr *MockStorageDriverMockRecorder) GetContent(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContent", reflect.TypeOf((*MockStorageDriver)(nil).GetContent), ctx, path)
+}
+
+// List mocks base method.
+func (m *MockStorageDriver) List(ctx context.Context, path string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", ctx, path)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockStorageDriverMockRecorder) List(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockStorageDriver)(nil).List), ctx, path)
+}
+
+// Move mocks base method.
+func (m *MockStorageDriver) Move(ctx context.Context, sourcePath, destPath string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Move", ctx, sourcePath, destPath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Move indicates an expected call of Move.
+func (mr *MockStorageDriverMockRecorder) Move(ctx, sourcePath, destPath interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Move", reflect.TypeOf((*MockStorageDriver)(nil).Move), ctx, sourcePath, destPath)
+}
+
+// Name mocks base method.
+func (m *MockStorageDriver) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name.
+func (mr *MockStorageDriverMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockStorageDriver)(nil).Name))
+}
+
+// PutContent mocks base method.
+func (m *MockStorageDriver) PutContent(ctx context.Context, path string, content []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutContent", ctx, path, content)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutContent indicates an expected call of PutContent.
+func (mr *MockStorageDriverMockRecorder) PutContent(ctx, path, content interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutContent", reflect.TypeOf((*MockStorageDriver)(nil).PutContent), ctx, path, content)
+}
+
+// Reader mocks base method.
+func (m *MockStorageDriver) Reader(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reader", ctx, path, offset)
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Reader indicates an expected call of Reader.
+func (mr *MockStorageDriverMockRecorder) Reader(ctx, path, offset interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reader", reflect.TypeOf((*MockStorageDriver)(nil).Reader), ctx, path, offset)
+}
+
+// Stat mocks base method.
+func (m *MockStorageDriver) Stat(ctx context.Context, path string) (driver.FileInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stat", ctx, path)
+	ret0, _ := ret[0].(driver.FileInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Stat indicates an expected call of Stat.
+func (mr *MockStorageDriverMockRecorder) Stat(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockStorageDriver)(nil).Stat), ctx, path)
+}
+
+// URLFor mocks base method.
+func (m *MockStorageDriver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "URLFor", ctx, path, options)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// URLFor indicates an expected call of URLFor.
+func (mr *MockStorageDriverMockRecorder) URLFor(ctx, path, options interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URLFor", reflect.TypeOf((*MockStorageDriver)(nil).URLFor), ctx, path, options)
+}
+
+// Walk mocks base method.
+func (m *MockStorageDriver) Walk(ctx context.Context, path string, f driver.WalkFn) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Walk", ctx, path, f)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Walk indicates an expected call of Walk.
+func (mr *MockStorageDriverMockRecorder) Walk(ctx, path, f interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Walk", reflect.TypeOf((*MockStorageDriver)(nil).Walk), ctx, path, f)
+}
+
+// Writer mocks base method.
+func (m *MockStorageDriver) Writer(ctx context.Context, path string, append bool) (driver.FileWriter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Writer", ctx, path, append)
+	ret0, _ := ret[0].(driver.FileWriter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Writer indicates an expected call of Writer.
+func (mr *MockStorageDriverMockRecorder) Writer(ctx, path, append interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Writer", reflect.TypeOf((*MockStorageDriver)(nil).Writer), ctx, path, append)
 }

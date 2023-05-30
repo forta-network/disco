@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine3.13 AS build
+FROM golang:1.19-alpine3.18 AS build
 
 ENV DISCO_DIR /go/src/github.com/forta-network/disco
 
@@ -7,7 +7,7 @@ COPY . ${DISCO_DIR}
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /disco/disco .
 COPY ./config/default-config.yaml /disco/config.yaml
 
-FROM alpine:3.12
+FROM alpine:3.18
 
 RUN set -ex \
     && apk add --no-cache ca-certificates
