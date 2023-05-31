@@ -9,12 +9,12 @@ import (
 )
 
 // ToCIDv1 converts IPFS CIDv0 to v1.
-func ToCIDv1(cidV0 string) string {
+func ToCIDv1(cidV0 string) (string, error) {
 	parsed, err := multihash.FromB58String(cidV0)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	return cid.NewCidV1(cid.DagProtobuf, parsed).String()
+	return cid.NewCidV1(cid.DagProtobuf, parsed).String(), nil
 }
 
 // IsCIDv1 checks if the hash is an IPFS CIDv1 hash.

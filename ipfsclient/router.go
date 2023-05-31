@@ -22,9 +22,9 @@ func NewRouter(nodeCount int) *Router {
 // RouteContent suggests a node index by consuming the content path.
 // There are three types of main content on distribution server storage to
 // load-balance/multiplex:
-//  - .../repositories/*
-//  - .../blobs/*
-//  - .../uploads/* (original path from distribution server: .../repositories/<repo>/_uploads/*)
+//   - .../repositories/*
+//   - .../blobs/*
+//   - .../uploads/* (original path from distribution server: .../repositories/<repo>/_uploads/*)
 func (router *Router) RouteContent(path string) (string, int, error) {
 	segments := strings.Split(path[1:], "/") // exclude leading slash
 	if len(segments) < 5 {
@@ -55,6 +55,6 @@ func (router *Router) RouteContent(path string) (string, int, error) {
 	return id, int(remainder.Int64()), nil
 }
 
-func pathErr(path, reason string, args ...interface{}) error {
-	return fmt.Errorf("path %s %s", args...)
+func pathErr(path, reason string) error {
+	return fmt.Errorf("path %s %s", path, reason)
 }

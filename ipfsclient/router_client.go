@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/forta-network/disco/config"
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/interfaces"
 	"github.com/forta-network/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
@@ -22,7 +22,7 @@ type RouterClient struct {
 
 type ipfsNode struct {
 	info   *config.Node
-	client *ipfsapi.Shell
+	client interfaces.IPFSFilesAPI
 }
 
 // NewRouterClient creates a new router client. Files client implementation

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
 )

@@ -17,7 +17,7 @@ import (
 	"github.com/forta-network/disco/drivers"
 	"github.com/forta-network/disco/drivers/filewriter"
 	"github.com/forta-network/disco/drivers/multidriver"
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 )
 

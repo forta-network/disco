@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type fileWriter struct {
+type FileWriter struct {
 	ctx        context.Context
 	driverName string
 	path       string
@@ -25,10 +25,10 @@ type fileWriter struct {
 type WriteFunc func(ctx context.Context, path string, reader io.Reader) error
 
 // NewFileWriter creates a new file writer.
-func NewFileWriter(ctx context.Context, driverName string, writeFunc WriteFunc, path string, size int64) *fileWriter {
+func NewFileWriter(ctx context.Context, driverName string, writeFunc WriteFunc, path string, size int64) *FileWriter {
 	pr, pw := io.Pipe()
 
-	fw := &fileWriter{
+	fw := &FileWriter{
 		ctx:  ctx,
 		path: path,
 		pr:   pr,
@@ -36,7 +36,7 @@ func NewFileWriter(ctx context.Context, driverName string, writeFunc WriteFunc, 
 		size: size,
 	}
 
-	go func(fw *fileWriter) {
+	go func(fw *FileWriter) {
 		fw.mu.Lock()
 		fw.err = writeFunc(ctx, path, pr)
 		log.WithField("driver", driverName).WithError(fw.err).Debug("writer done")
@@ -46,34 +46,38 @@ func NewFileWriter(ctx context.Context, driverName string, writeFunc WriteFunc, 
 	return fw
 }
 
-func (fw *fileWriter) getErr() error {
+func (fw *FileWriter) getErr() error {
 	fw.mu.Lock()
 	err := fw.err
 	fw.mu.Unlock()
 	return err
 }
 
-func (fw *fileWriter) Write(p []byte) (int, error) {
+func (fw *FileWriter) Write(p []byte) (int, error) {
 	n, err := fw.pw.Write(p)
 	fw.size += int64(n)
 	return n, err
 }
 
-func (fw *fileWriter) Size() int64 {
+func (fw *FileWriter) Size() int64 {
 	return fw.size
 }
 
-func (fw *fileWriter) Close() error {
+func (fw *FileWriter) Close() error {
 	fw.pw.Close()
 	return fw.getErr()
 }
 
-func (fw *fileWriter) Cancel() error {
+func (fw *FileWriter) Cancel() error {
 	return fw.Close()
 }
 
-func (fw *fileWriter) Commit() error {
+func (fw *FileWriter) Commit() error {
 	return fw.Close()
+}
+
+func (fw *FileWriter) ReadCloser() io.ReadCloser {
+	return fw.pr
 }
 
 type loggerWriter struct {

@@ -18,12 +18,20 @@ docker-run: docker-build
 
 .PHONY: mocks
 mocks:
-	@mockgen -source proxy/services/interfaces/interfaces.go -destination proxy/services/interfaces/mocks/mock_interfaces.go
+	@mockgen -source interfaces/interfaces.go -destination interfaces/mocks/mock_interfaces.go
 	@mockgen -source drivers/multidriver/multidriver.go -destination drivers/multidriver/mocks/mock_multidriver.go
 
 .PHONY: test
 test:
-	@go test -v -count=1 ./...
+	@go test -v -count=1 -covermode=count -coverprofile=coverage.out ./...
+
+.PHONY: cover
+cover: test
+	go tool cover -func=coverage.out -o=coverage.out
+
+.PHONY: coverage
+coverage: test
+	go tool cover -func=coverage.out | grep total | awk '{print substr($$3, 1, length($$3)-1)}'
 
 .PHONY: e2e
 e2e:

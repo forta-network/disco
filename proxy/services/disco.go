@@ -9,7 +9,7 @@ import (
 	"github.com/forta-network/disco/deps"
 	"github.com/forta-network/disco/drivers/ipfs"
 	"github.com/forta-network/disco/drivers/multidriver"
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/interfaces"
 	"github.com/forta-network/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	log "github.com/sirupsen/logrus"
@@ -123,7 +123,10 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	if err != nil {
 		return fmt.Errorf("failed while getting the repo cid: %v", err)
 	}
-	repoCidV1 := utils.ToCIDv1(repoCid)
+	repoCidV1, err := utils.ToCIDv1(repoCid)
+	if err != nil {
+		return fmt.Errorf("failed to convert cid v0 '%s' to v1: %v", repoCid, err)
+	}
 	ipfsCidRepoPath := makeRepoPath(repoCidV1)
 	err = nodeClient.FilesCp(ctx, uploadRepoPath, ipfsCidRepoPath)
 	if err != nil && !strings.Contains(err.Error(), "already has entry") {

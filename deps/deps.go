@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	"github.com/forta-network/disco/config"
-	"github.com/forta-network/disco/proxy/services/interfaces"
-	"github.com/forta-network/disco/proxy/services/ipfsclient"
+	"github.com/forta-network/disco/interfaces"
+	"github.com/forta-network/disco/ipfsclient"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,10 +24,6 @@ func Get() interfaces.IPFSClient {
 }
 
 func initialize() interfaces.IPFSClient {
-	ipfsURL, ok := config.DistributionConfig.Storage["ipfs"]["url"]
-	if ok {
-		return ipfsclient.NewClient(ipfsURL.(string))
-	}
 	if len(config.Router.Nodes) == 0 {
 		panic("no routed nodes")
 	}

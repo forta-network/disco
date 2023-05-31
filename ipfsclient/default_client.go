@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/forta-network/disco/proxy/services/interfaces"
+	"github.com/forta-network/disco/interfaces"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 )
 
