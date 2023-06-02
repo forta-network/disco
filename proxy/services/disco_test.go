@@ -187,7 +187,7 @@ func (s *Suite) TestMakeGlobalRepo() {
 	s.disco.MakeGlobalRepo(s.ctx, "myrepo")
 }
 
-func (s *Suite) TestAlreadyMadeGlobal() {
+func (s *Suite) TestMakeGlobalRepo_AlreadyMadeGlobal() {
 	// Given that a repo was pushed successfully
 	// And made global previously
 	// When the repo is inteded to be made global automatically again
@@ -246,7 +246,7 @@ func (s *Suite) TestCloneGlobalRepo() {
 	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
 }
 
-func (s *Suite) TestAlreadyCloned() {
+func (s *Suite) TestCloneGlobalRepo_AlreadyCloned() {
 	// Given that a repo was made global previously
 	// And already cloned and pulled
 	// When the repo is pulled with base32 CID v1 again
@@ -257,5 +257,13 @@ func (s *Suite) TestAlreadyCloned() {
 		isDir: false,
 	}, nil)
 
+	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
+}
+
+func (s *Suite) TestCloneGlobalRepo_NoClone() {
+	// Given that a repo is to be cloned
+	// When "no clone" setting is true
+	// Then cloning should be a no-op
+	s.disco.noClone = true
 	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
 }

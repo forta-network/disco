@@ -26,7 +26,7 @@ func New() (*http.Server, error) {
 
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", config.Vars.DiscoPort),
-		Handler:      newHandler(rp, services.NewDiscoService()),
+		Handler:      newHandler(rp, services.NewDiscoService(config.DiscoConfig.Disco.NoClone)),
 		ReadTimeout:  time.Minute * 10,
 		WriteTimeout: time.Minute * 10,
 		IdleTimeout:  time.Second * 30,

@@ -18,6 +18,7 @@ import (
 // Disco service allows us to do Disco things on top of the
 // Distribution server.
 type Disco struct {
+	noClone       bool
 	getIpfsClient getIpfsClientFunc
 	getDriver     getDriverFunc
 }
@@ -26,8 +27,9 @@ type getIpfsClientFunc func() interfaces.IPFSClient
 type getDriverFunc func() storagedriver.StorageDriver
 
 // NewDiscoService creates a new Disco service.
-func NewDiscoService() *Disco {
+func NewDiscoService(noClone bool) *Disco {
 	return &Disco{
+		noClone:       true,
 		getIpfsClient: deps.Get,
 		getDriver:     ipfs.Get,
 	}
@@ -171,6 +173,10 @@ func (disco *Disco) IsOnlyPullable(repoName string) bool {
 //
 // The end result in the IPFS node's MFS should look like the one from MakeGlobalRepo and all CIDs should match.
 func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error {
+	if disco.noClone {
+		return nil
+	}
+
 	// Step #1
 	if !utils.IsCIDv1(repoName) {
 		log.WithField("repository", repoName).Debugf("not a cidv1 name - not attempting to clone from ipfs")

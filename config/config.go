@@ -36,7 +36,9 @@ var (
 	RedirectTo         *url.URL
 )
 
-var customConfig struct {
+// DiscoConfig contains the extra configuration settings that blend with
+// the distribution library config.
+var DiscoConfig struct {
 	Storage struct {
 		IPFS struct {
 			Router   RouterConfig          `yaml:"router"`
@@ -44,6 +46,9 @@ var customConfig struct {
 			Redirect string                `yaml:"redirect"`
 		} `yaml:"ipfs"`
 	} `yaml:"storage"`
+	Disco struct {
+		NoClone bool `yaml:"noclone"`
+	} `yaml:"disco"`
 }
 
 // Init parses and prepares all config variables.
@@ -71,14 +76,14 @@ func Init() error {
 	if ipfsConfig["router"] != nil {
 		file, _ = os.Open(Vars.RegistryConfigurationPath)
 		defer file.Close()
-		err = yaml.NewDecoder(file).Decode(&customConfig)
+		err = yaml.NewDecoder(file).Decode(&DiscoConfig)
 		if err != nil {
 			return err
 		}
-		Router = customConfig.Storage.IPFS.Router
-		Cache = customConfig.Storage.IPFS.Cache
-		if len(customConfig.Storage.IPFS.Redirect) > 0 {
-			RedirectTo, err = url.Parse(customConfig.Storage.IPFS.Redirect)
+		Router = DiscoConfig.Storage.IPFS.Router
+		Cache = DiscoConfig.Storage.IPFS.Cache
+		if len(DiscoConfig.Storage.IPFS.Redirect) > 0 {
+			RedirectTo, err = url.Parse(DiscoConfig.Storage.IPFS.Redirect)
 			if err != nil {
 				return err
 			}
