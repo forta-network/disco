@@ -1,7 +1,9 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -17,10 +19,13 @@ import (
 
 var (
 	processStartWaitSeconds = 10
-	testImageName           = "localhost:1970/test"
+	pushImageRef            = "localhost:1970/test"
 
 	expectedImageSha = "2197ffa9bd16c893488bc26712a9dd28826daf2abb1a1dabf554fe32615a541d"
 	expectedImageCid = "bafybeicvnsxllo2cqihnyroi4ydbpvfhghrid6tfyxv2f3acoxgvg3ceoy"
+
+	unexpectedImageCid     = "bafybeielvnt5apaxbk6chthc4dc3p6vscpx3ai4uvti7gwh253j7facsxu"
+	unexpectedPullImageRef = fmt.Sprintf("localhost:1970/%s", unexpectedImageCid)
 
 	reposPath = "/docker/registry/v2/repositories/"
 
@@ -93,7 +98,7 @@ func (s *E2ETestSuite) TearDownTest() {
 }
 
 func (s *E2ETestSuite) TestPushVerify() {
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	s.verifyFiles()
 }
@@ -128,7 +133,7 @@ func (s *E2ETestSuite) verifyFiles() {
 }
 
 func (s *E2ETestSuite) TestPurgeIPFS_Pull() {
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from ipfs (primary store)
 	s.startCleanIpfs()
@@ -142,13 +147,13 @@ func (s *E2ETestSuite) TestPurgeIPFS_Pull() {
 }
 
 func (s *E2ETestSuite) TestPurgeIPFS_PushAgainPull() {
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from ipfs (primary store)
 	s.startCleanIpfs()
 
 	// push again
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	s.verifyFiles()
 
@@ -156,7 +161,7 @@ func (s *E2ETestSuite) TestPurgeIPFS_PushAgainPull() {
 }
 
 func (s *E2ETestSuite) TestPurgeCache_Pull() {
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from filestore (secondary store)
 	s.r.NoError(os.RemoveAll("testdir/cache"))
@@ -166,15 +171,26 @@ func (s *E2ETestSuite) TestPurgeCache_Pull() {
 }
 
 func (s *E2ETestSuite) TestPurgeCache_PushAgainPull() {
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from filestore (secondary store)
 	s.r.NoError(os.RemoveAll("testdir/cache"))
 
 	// push again
-	s.r.NoError(exec.Command("docker", "push", testImageName).Run())
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	s.verifyFiles()
 
 	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+}
+
+func (s *E2ETestSuite) TestPullUnknown_NoClone() {
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+
+	var out bytes.Buffer
+	pullCmd := exec.Command("docker", "pull", unexpectedPullImageRef)
+	pullCmd.Stdout = &out
+	pullCmd.Stderr = &out
+	s.r.Error(pullCmd.Run())
+	s.r.Contains(out.String(), "not found", out.String())
 }
