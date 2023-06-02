@@ -80,7 +80,9 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 
 	// Step #5
 	if !utils.IsCIDv1(repoName) && !utils.IsDigestHex(repoName) {
-		defer driver.Delete(ctx, uploadRepoPath)
+		defer func() {
+			_ = driver.Delete(ctx, uploadRepoPath)
+		}()
 	}
 
 	// Step #1
@@ -141,8 +143,8 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to find client for destination repo provider (before copying digest-name repo): %v", err)
 	}
-	nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
-	nodeClient.FilesRm(ctx, manifestDigestRepoPath, true)
+	_ = nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
+	_ = nodeClient.FilesRm(ctx, manifestDigestRepoPath, true)
 	if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), manifestDigestRepoPath); err != nil {
 		return fmt.Errorf("failed while duplicating with digest: %v", err)
 	}
@@ -219,7 +221,7 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		if hasFile {
 			continue
 		}
-		blobNodeClient.FilesMkdir(ctx, makeBlobDirPath(blobCid.Digest), ipfsapi.FilesMkdir.Parents(true))
+		_ = blobNodeClient.FilesMkdir(ctx, makeBlobDirPath(blobCid.Digest), ipfsapi.FilesMkdir.Parents(true))
 		if err := blobNodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", blobCid.Cid), makeBlobPath(blobCid.Digest)); err != nil {
 			return fmt.Errorf("failed while copying blob %s (%s) from the network: %v", blobCid.Digest, blobCid.Cid, err)
 		}

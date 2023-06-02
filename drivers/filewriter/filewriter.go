@@ -10,12 +10,11 @@ import (
 )
 
 type FileWriter struct {
-	ctx        context.Context
-	driverName string
-	path       string
-	pr         *io.PipeReader
-	pw         *io.PipeWriter
-	size       int64
+	ctx  context.Context
+	path string
+	pr   *io.PipeReader
+	pw   *io.PipeWriter
+	size int64
 
 	err error
 	mu  sync.Mutex

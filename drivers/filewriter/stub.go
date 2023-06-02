@@ -5,10 +5,6 @@ type StubWriter struct {
 	size int64
 }
 
-func (sw *StubWriter) getErr() error {
-	return nil
-}
-
 // Write implements storagedriver.FileWriter.
 func (sw *StubWriter) Write(p []byte) (int, error) {
 	sw.size += int64(len(p))

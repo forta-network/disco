@@ -163,9 +163,9 @@ func (s *DriverTestSuite) TestWalk() {
 	s.primary.EXPECT().Walk(gomock.Any(), testPath, gomock.Any()).Return(nil)
 	s.secondary.EXPECT().Walk(gomock.Any(), testPath, gomock.Any()).Return(nil)
 
-	s.driver.Walk(context.Background(), testPath, func(fileInfo storagedriver.FileInfo) error {
+	s.r.NoError(s.driver.Walk(context.Background(), testPath, func(fileInfo storagedriver.FileInfo) error {
 		return nil
-	})
+	}))
 }
 
 func (s *DriverTestSuite) TestReplicateInPrimary() {

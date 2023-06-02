@@ -3,6 +3,7 @@ package ipfsclient
 import (
 	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	mock_interfaces "github.com/forta-network/disco/interfaces/mocks"
@@ -59,21 +60,23 @@ func (s *RouterTestSuite) TestGetClientFor() {
 }
 
 func (s *RouterTestSuite) TestFilesRead() {
-	s.ipfsClient1.EXPECT().FilesRead(gomock.Any(), testPath1)
+	s.ipfsClient1.EXPECT().FilesRead(gomock.Any(), testPath1).Return(io.NopCloser(bytes.NewBufferString("")), nil)
 
-	s.routerClient.FilesRead(context.Background(), testPath1)
+	r, err := s.routerClient.FilesRead(context.Background(), testPath1)
+	s.r.NoError(err)
+	s.r.NotNil(r)
 }
 
 func (s *RouterTestSuite) TestFilesWrite() {
-	s.ipfsClient1.EXPECT().FilesWrite(gomock.Any(), testPath1, gomock.Any())
+	s.ipfsClient1.EXPECT().FilesWrite(gomock.Any(), testPath1, gomock.Any()).Return(nil)
 
-	s.routerClient.FilesWrite(context.Background(), testPath1, bytes.NewBufferString(""))
+	s.r.NoError(s.routerClient.FilesWrite(context.Background(), testPath1, bytes.NewBufferString("")))
 }
 
 func (s *RouterTestSuite) TestFilesRm() {
 	s.ipfsClient1.EXPECT().FilesRm(gomock.Any(), testPath1, true)
 
-	s.routerClient.FilesRm(context.Background(), testPath1, true)
+	s.r.NoError(s.routerClient.FilesRm(context.Background(), testPath1, true))
 }
 
 func (s *RouterTestSuite) TestFilesCp() {
@@ -82,25 +85,29 @@ func (s *RouterTestSuite) TestFilesCp() {
 	}, nil)
 	s.ipfsClient1.EXPECT().FilesCp(gomock.Any(), testCidPath, testPath1)
 
-	s.routerClient.FilesCp(context.Background(), testPath1, testPath1)
+	s.r.NoError(s.routerClient.FilesCp(context.Background(), testPath1, testPath1))
 }
 
 func (s *RouterTestSuite) TestFilesStat() {
-	s.ipfsClient1.EXPECT().FilesStat(gomock.Any(), testPath1)
+	s.ipfsClient1.EXPECT().FilesStat(gomock.Any(), testPath1).Return(&ipfsapi.FilesStatObject{}, nil)
 
-	s.routerClient.FilesStat(context.Background(), testPath1)
+	stat, err := s.routerClient.FilesStat(context.Background(), testPath1)
+	s.r.NoError(err)
+	s.r.NotNil(stat)
 }
 
 func (s *RouterTestSuite) TestFilesMkdir() {
 	s.ipfsClient1.EXPECT().FilesMkdir(gomock.Any(), testPath1)
 
-	s.routerClient.FilesMkdir(context.Background(), testPath1)
+	s.r.NoError(s.routerClient.FilesMkdir(context.Background(), testPath1))
 }
 
 func (s *RouterTestSuite) TestFilesLs() {
-	s.ipfsClient1.EXPECT().FilesLs(gomock.Any(), testPath1)
+	s.ipfsClient1.EXPECT().FilesLs(gomock.Any(), testPath1).Return([]*ipfsapi.MfsLsEntry{}, nil)
 
-	s.routerClient.FilesLs(context.Background(), testPath1)
+	list, err := s.routerClient.FilesLs(context.Background(), testPath1)
+	s.r.NoError(err)
+	s.r.NotNil(list)
 }
 
 func (s *RouterTestSuite) TestFilesMv() {
@@ -115,5 +122,5 @@ func (s *RouterTestSuite) TestFilesMv() {
 	// delete from first
 	s.ipfsClient1.EXPECT().FilesRm(gomock.Any(), testPath1, true)
 
-	s.routerClient.FilesMv(context.Background(), testPath1, testPath2)
+	s.r.NoError(s.routerClient.FilesMv(context.Background(), testPath1, testPath2))
 }

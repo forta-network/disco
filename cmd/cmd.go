@@ -39,7 +39,9 @@ func Main(ctx context.Context) {
 	if err != nil {
 		log.WithError(err).Fatal("failed to initialize the registry")
 	}
-	go registry.ListenAndServe()
+	go func() {
+		_ = registry.ListenAndServe()
+	}()
 
 	proxyServer, err := proxy.New()
 	if err != nil {
@@ -47,7 +49,7 @@ func Main(ctx context.Context) {
 	}
 	go func() {
 		<-ctx.Done()
-		proxyServer.Close()
+		_ = proxyServer.Close()
 	}()
 	if err := proxyServer.ListenAndServe(); err != nil {
 		log.WithError(err).Warn("proxy stopped")

@@ -65,7 +65,7 @@ type readerMatcher struct {
 // Matches returns whether x is a match.
 func (rm *readerMatcher) Matches(x interface{}) bool {
 	b := make([]byte, 1)
-	x.(*io.PipeReader).Read(b)
+	_, _ = x.(*io.PipeReader).Read(b)
 	return true
 }
 
@@ -82,13 +82,12 @@ func (s *DriverTestSuite) TestWriter() {
 		Return(nil)
 
 	writer, err := s.driver.Writer(context.Background(), testPath, true)
+	s.r.NoError(err)
 	n, err := writer.Write([]byte("1"))
 	s.r.NoError(writer.Commit())
 	s.r.NoError(writer.Close())
 	s.r.NoError(err)
 	s.r.Equal(1, n)
-
-	s.r.NoError(err)
 }
 
 func (s *DriverTestSuite) TestPutContent() {
@@ -140,7 +139,7 @@ func (s *DriverTestSuite) TestWalk() {
 	s.ipfsClient.EXPECT().FilesStat(gomock.Any(), testPath).Return(ipfsStat, nil).AnyTimes()
 	s.ipfsClient.EXPECT().FilesLs(gomock.Any(), gomock.Any()).Return(nil, nil)
 
-	s.driver.Walk(context.Background(), testPath, func(fileInfo storagedriver.FileInfo) error {
+	s.r.NoError(s.driver.Walk(context.Background(), testPath, func(fileInfo storagedriver.FileInfo) error {
 		return nil
-	})
+	}))
 }

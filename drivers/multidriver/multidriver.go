@@ -121,7 +121,7 @@ func (d *driver) syncD1ToD2(ctx context.Context, d1, d2 storagedriver.StorageDri
 		return fmt.Errorf("failed to copy from '%s' to '%s': %v", d1.Name(), d2.Name(), err)
 	}
 	if err := d2w.Commit(); err != nil {
-		d2w.Cancel()
+		_ = d2w.Cancel()
 		return fmt.Errorf("failed to commit '%s' writer: %v", d2.Name(), err)
 	}
 	log.WithFields(log.Fields{
@@ -239,10 +239,9 @@ func (d *driver) URLFor(ctx context.Context, contentPath string, options map[str
 		return "", storagedriver.ErrUnsupportedMethod{}
 	}
 
-	methodString := "GET"
 	method, ok := options["method"]
 	if ok {
-		methodString, ok = method.(string)
+		methodString, ok := method.(string)
 		if !ok || (methodString != "GET" && methodString != "HEAD") {
 			return "", storagedriver.ErrUnsupportedMethod{}
 		}

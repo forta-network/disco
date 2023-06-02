@@ -25,7 +25,6 @@ var (
 	reposPath = "/docker/registry/v2/repositories/"
 
 	expectedSha256Repo = path.Join(reposPath, expectedImageSha)
-	expectedCidRepo    = path.Join(reposPath, expectedImageCid)
 
 	expectedManifestBlob = "/docker/registry/v2/blobs/sha256/21/2197ffa9bd16c893488bc26712a9dd28826daf2abb1a1dabf554fe32615a541d/data"
 	expectedConfigBlob   = "/docker/registry/v2/blobs/sha256/dd/dddc7578369a0eb6d94c6eb359fb15cc807e2874fbd7e40614ed0b348c45fd2c/data"
@@ -62,7 +61,7 @@ func (s *E2ETestSuite) SetupTest() {
 }
 
 func (s *E2ETestSuite) startCleanIpfs() {
-	exec.Command("pkill", "ipfs").Run()
+	_ = exec.Command("pkill", "ipfs").Run()
 	s.r.NoError(os.RemoveAll("testdir/.ipfs"))
 
 	s.r.NoError(exec.Command("ipfs", "init").Run())
@@ -90,7 +89,7 @@ func (s *E2ETestSuite) ensureAvailability(name string, check func() error) {
 }
 
 func (s *E2ETestSuite) TearDownTest() {
-	exec.Command("pkill", "ipfs").Run()
+	_ = exec.Command("pkill", "ipfs").Run()
 }
 
 func (s *E2ETestSuite) TestPushVerify() {

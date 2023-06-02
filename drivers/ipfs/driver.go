@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/distribution/distribution/v3/configuration"
@@ -116,7 +115,7 @@ func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
 		return nil, err
 	}
 	defer readCloser.Close()
-	return ioutil.ReadAll(readCloser)
+	return io.ReadAll(readCloser)
 }
 
 // PutContent stores the []byte content at a location designated by "path".

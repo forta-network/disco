@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -147,12 +146,12 @@ func (s *Suite) TestMakeGlobalRepo() {
 
 	// And find the manifest link for the upload
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/myrepo/_manifests/tags/latest/current/link").
-		Return(ioutil.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
+		Return(io.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
 	// s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/repositories/"+testManifestDigest).
 	// 	Return(&ipfsapi.FilesStatObject{CumulativeSize: 0}, nil)
 	// And find the manifest blob from the repo
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest+"/data").
-		Return(ioutil.NopCloser(bytes.NewBufferString(testManifest)), nil)
+		Return(io.NopCloser(bytes.NewBufferString(testManifest)), nil)
 	// And find the CIDs for all of the blobs
 	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/blobs/sha256/"+testLayerDigest[:2]+"/"+testLayerDigest+"/data").
 		Return(&ipfsapi.FilesStatObject{Hash: testLayerCid}, nil)
@@ -184,7 +183,7 @@ func (s *Suite) TestMakeGlobalRepo() {
 	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testManifestDigest)).Return(nil, nil)
 	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testCidv1)).Return(nil, nil)
 
-	s.disco.MakeGlobalRepo(s.ctx, "myrepo")
+	s.r.NoError(s.disco.MakeGlobalRepo(s.ctx, "myrepo"))
 }
 
 func (s *Suite) TestMakeGlobalRepo_AlreadyMadeGlobal() {
@@ -193,7 +192,7 @@ func (s *Suite) TestMakeGlobalRepo_AlreadyMadeGlobal() {
 	// When the repo is inteded to be made global automatically again
 	// Then it should find the manifest digest from the storage
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, makeRepoPath("myrepo")+"/_manifests/tags/latest/current/link").
-		Return(ioutil.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
+		Return(io.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
 	// And expect that there is a repo with digest as the name
 	s.driver.EXPECT().Stat(s.ctx, makeRepoPath(testManifestDigest)).
 		Return(&fileInfo{
@@ -204,7 +203,7 @@ func (s *Suite) TestMakeGlobalRepo_AlreadyMadeGlobal() {
 	// And finally remove the pushed repo from MFS
 	s.driver.EXPECT().Delete(s.ctx, makeRepoPath("myrepo")).Return(nil)
 
-	s.disco.MakeGlobalRepo(s.ctx, "myrepo")
+	s.r.NoError(s.disco.MakeGlobalRepo(s.ctx, "myrepo"))
 }
 
 func (s *Suite) TestCloneGlobalRepo() {
@@ -243,7 +242,7 @@ func (s *Suite) TestCloneGlobalRepo() {
 	s.driver.EXPECT().ReplicateInSecondary(makeBlobPath(testConfigDigest)).Return(nil, nil)
 	s.driver.EXPECT().ReplicateInSecondary(makeBlobPath(testLayerDigest)).Return(nil, nil)
 
-	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
+	s.r.NoError(s.disco.CloneGlobalRepo(s.ctx, testCidv1))
 }
 
 func (s *Suite) TestCloneGlobalRepo_AlreadyCloned() {
@@ -257,7 +256,7 @@ func (s *Suite) TestCloneGlobalRepo_AlreadyCloned() {
 		isDir: false,
 	}, nil)
 
-	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
+	s.r.NoError(s.disco.CloneGlobalRepo(s.ctx, testCidv1))
 }
 
 func (s *Suite) TestCloneGlobalRepo_NoClone() {
@@ -265,5 +264,5 @@ func (s *Suite) TestCloneGlobalRepo_NoClone() {
 	// When "no clone" setting is true
 	// Then cloning should be a no-op
 	s.disco.noClone = true
-	s.disco.CloneGlobalRepo(s.ctx, testCidv1)
+	s.r.NoError(s.disco.CloneGlobalRepo(s.ctx, testCidv1))
 }

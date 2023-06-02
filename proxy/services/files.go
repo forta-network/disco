@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
@@ -19,7 +19,7 @@ func (disco *Disco) digestFromLink(ctx context.Context, path string) (string, er
 	if err != nil {
 		return "", err
 	}
-	b, err := ioutil.ReadAll((r))
+	b, err := io.ReadAll((r))
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +149,7 @@ func (disco *Disco) readDiscoFile(ctx context.Context, repoName string) (*discoF
 		return nil, err
 	}
 	if !hasFile {
-		nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
+		_ = nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
 		if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoName), makeRepoPath(repoName)); err != nil {
 			return nil, fmt.Errorf("failed while copying the repo from the network: %v", err)
 		}
