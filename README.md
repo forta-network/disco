@@ -1,4 +1,5 @@
 # disco
+![coverage](https://img.shields.io/badge/coverage-73.3%25-brightgreen)
 
 ![mirror ball](https://upload.wikimedia.org/wikipedia/commons/2/29/Disco_ball4.jpg)
 
