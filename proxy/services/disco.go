@@ -29,7 +29,7 @@ type getDriverFunc func() storagedriver.StorageDriver
 // NewDiscoService creates a new Disco service.
 func NewDiscoService(noClone bool) *Disco {
 	return &Disco{
-		noClone:       true,
+		noClone:       noClone,
 		getIpfsClient: deps.Get,
 		getDriver:     ipfs.Get,
 	}
