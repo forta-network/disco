@@ -193,10 +193,12 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		}
 
 	case storagedriver.PathNotFoundError:
+		log.WithField("repository", repoName).Info("not found in primary - replicating in secondary before pull")
 		err = disco.tryReplicateInSecondary(ctx, makeRepoPath(repoName))
 		if err == nil {
 			return nil
 		}
+		log.WithField("repository", repoName).WithError(err).Warn("failed do replicate in secondary before pull")
 		// continue cloning
 
 	default:
