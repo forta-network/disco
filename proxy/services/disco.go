@@ -175,10 +175,6 @@ func (disco *Disco) IsOnlyPullable(repoName string) bool {
 //
 // The end result in the IPFS node's MFS should look like the one from MakeGlobalRepo and all CIDs should match.
 func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error {
-	if disco.noClone {
-		return nil
-	}
-
 	// Step #1
 	if !utils.IsCIDv1(repoName) {
 		log.WithField("repository", repoName).Debugf("not a cidv1 name - not attempting to clone from ipfs")
@@ -197,10 +193,18 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		}
 
 	case storagedriver.PathNotFoundError:
+		err = disco.tryReplicateInSecondary(ctx, makeRepoPath(repoName))
+		if err == nil {
+			return nil
+		}
 		// continue cloning
 
 	default:
 		return fmt.Errorf("failed to check disco file using the driver: %v", err)
+	}
+
+	if disco.noClone {
+		return nil
 	}
 
 	// Step #2 and #3
@@ -233,6 +237,15 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		contentPaths = append(contentPaths, makeBlobPath(blob.Digest))
 	}
 	return disco.replicateInSecondary(driver, contentPaths)
+}
+
+func (disco *Disco) tryReplicateInSecondary(ctx context.Context, contentPath string) error {
+	multiDriver, ok := multidriver.Is(disco.getDriver())
+	if !ok {
+		return nil
+	}
+	_, err := multiDriver.ReplicateInSecondary(contentPath)
+	return err
 }
 
 func (disco *Disco) replicateInSecondary(driver storagedriver.StorageDriver, contentPaths []string) error {

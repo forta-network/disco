@@ -213,6 +213,9 @@ func (s *Suite) TestCloneGlobalRepo() {
 	s.driver.EXPECT().Stat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(nil, storagedriver.PathNotFoundError{
 		Path: makeDiscoFilePath(testCidv1),
 	})
+	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testCidv1)).Return(nil, storagedriver.PathNotFoundError{
+		Path: makeRepoPath(testCidv1),
+	})
 	// And clone the image repository from the ipfs network to the local ipfs node
 	s.ipfsNode.EXPECT().FilesStat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(nil, errors.New("does not exist"))
 	s.ipfsNode.EXPECT().FilesMkdir(gomock.Any(), repositoriesBase, gomock.Any())
@@ -259,10 +262,31 @@ func (s *Suite) TestCloneGlobalRepo_AlreadyCloned() {
 	s.r.NoError(s.disco.CloneGlobalRepo(s.ctx, testCidv1))
 }
 
+func (s *Suite) TestCloneGlobalRepo_ExistsInPrimary() {
+	// Given that a repo was made global previously
+	// And already cloned and pulled
+	// When the repo is pulled with base32 CID v1 again
+	// But the disco file doesn't exist and the repo exists
+	// Then it should stat repo the and abort cloning again
+	s.driver.EXPECT().Stat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(nil, storagedriver.PathNotFoundError{})
+	s.driver.EXPECT().ReplicateInSecondary(makeRepoPath(testCidv1)).Return(&fileInfo{
+		path:  makeDiscoFilePath(testCidv1),
+		size:  1,
+		isDir: false,
+	}, nil)
+
+	s.r.NoError(s.disco.CloneGlobalRepo(s.ctx, testCidv1))
+}
+
 func (s *Suite) TestCloneGlobalRepo_NoClone() {
 	// Given that a repo is to be cloned
 	// When "no clone" setting is true
 	// Then cloning should be a no-op
 	s.disco.noClone = true
+	s.driver.EXPECT().Stat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(&fileInfo{
+		path:  makeDiscoFilePath(testCidv1),
+		size:  1,
+		isDir: false,
+	}, nil)
 	s.r.NoError(s.disco.CloneGlobalRepo(s.ctx, testCidv1))
 }

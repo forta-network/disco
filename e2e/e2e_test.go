@@ -184,6 +184,18 @@ func (s *E2ETestSuite) TestPurgeCache_PushAgainPull() {
 	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
 }
 
+func (s *E2ETestSuite) TestPurgeCache_MissingCidRepo() {
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+
+	// delete the cid repo from filestore (secondary store)
+	s.r.NoError(os.RemoveAll(path.Join("testdir/cache/docker/registry/v2/repositories", expectedImageCid)))
+
+	// pull should replicate
+	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+
+	s.verifyFiles()
+}
+
 func (s *E2ETestSuite) TestPullUnknown_NoClone() {
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
