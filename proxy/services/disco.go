@@ -43,9 +43,9 @@ func NewDiscoService(noClone bool) *Disco {
 //
 // Steps in here are executed after Distribution server creates a repository:
 //  1. Add disco.json to the repo dir so the blobs can be copied from the network at the time of "pull".
-//  2. Duplicate the repo by using the manifest digest as the repo name so we make <digest>:latest possible.
-//  3. Duplicate the repo by using the base32-encoded IPFS CID of repo dir as the repo name so it becomes very easy to address the repo.
-//  4. Tag the repo in step 2 with the name in step 3 like <digest>:<CID> so it becomes easy to discover the CID from the digest.
+//  2. Duplicate the repo by using the base32-encoded IPFS CID of repo dir as the repo name so it becomes very easy to address the repo.
+//  3. Duplicate the repo by using the manifest digest as the repo name so we make <digest>:latest possible.
+//  4. Tag the repo in step 3 with the name in step 2 like <digest>:<CID> so it becomes easy to discover the CID from the digest.
 //  5. Remove the repo which was created before step 1 so we allow no special names for repositories.
 //
 // The images should be accessible from any Disco which speaks to an IPFS node connected to the
@@ -119,10 +119,6 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 	}
 
 	// Step #2
-	nodeClient, err := ipfsClient.GetClientFor(ctx, uploadRepoPath)
-	if err != nil {
-		return fmt.Errorf("failed to find client for original repo provider (before copying): %v", err)
-	}
 	repoCid, err := disco.getCid(ctx, uploadRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed while getting the repo cid: %v", err)
@@ -132,20 +128,26 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		return fmt.Errorf("failed to convert cid v0 '%s' to v1: %v", repoCid, err)
 	}
 	ipfsCidRepoPath := makeRepoPath(repoCidV1)
-	err = nodeClient.FilesCp(ctx, uploadRepoPath, ipfsCidRepoPath)
+	cidRepoClient, err := ipfsClient.GetClientFor(ctx, ipfsCidRepoPath)
+	if err != nil {
+		return fmt.Errorf("failed to find client for cid repo (to copy after upload is done): %v", err)
+	}
+	_ = cidRepoClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
+	_ = cidRepoClient.FilesRm(ctx, ipfsCidRepoPath, true)
+	err = cidRepoClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), ipfsCidRepoPath)
 	if err != nil && !strings.Contains(err.Error(), "already has entry") {
 		return fmt.Errorf("failed while duplicating with base32 cid: %v", err)
 	}
 
 	// Step #3
 	// make blob digest hex multiplexing logic work
-	nodeClient, err = ipfsClient.GetClientFor(ctx, manifestDigestRepoPath)
+	manifestRepoClient, err := ipfsClient.GetClientFor(ctx, manifestDigestRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed to find client for destination repo provider (before copying digest-name repo): %v", err)
 	}
-	_ = nodeClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
-	_ = nodeClient.FilesRm(ctx, manifestDigestRepoPath, true)
-	if err := nodeClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), manifestDigestRepoPath); err != nil {
+	_ = manifestRepoClient.FilesMkdir(ctx, repositoriesBase, ipfsapi.FilesMkdir.Parents(true))
+	_ = manifestRepoClient.FilesRm(ctx, manifestDigestRepoPath, true)
+	if err := manifestRepoClient.FilesCp(ctx, fmt.Sprintf("/ipfs/%s", repoCid), manifestDigestRepoPath); err != nil {
 		return fmt.Errorf("failed while duplicating with digest: %v", err)
 	}
 
@@ -193,12 +195,12 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		}
 
 	case storagedriver.PathNotFoundError:
-		log.WithField("repository", repoName).Info("not found in primary - replicating in secondary before pull")
+		log.WithField("repository", repoName).Info("not found in secondary - replicating from primary before pull")
 		err = disco.tryReplicateInSecondary(ctx, makeRepoPath(repoName))
 		if err == nil {
 			return nil
 		}
-		log.WithField("repository", repoName).WithError(err).Warn("failed do replicate in secondary before pull")
+		log.WithField("repository", repoName).WithError(err).Warn("failed to replicate in secondary before pull")
 		// continue cloning
 
 	default:

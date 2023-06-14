@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	processStartWaitSeconds = 10
+	processStartWaitSeconds = 60
 	pushImageRef            = "localhost:1970/test"
 
 	expectedImageSha = "2197ffa9bd16c893488bc26712a9dd28826daf2abb1a1dabf554fe32615a541d"
@@ -41,7 +41,8 @@ var (
 type E2ETestSuite struct {
 	r *require.Assertions
 
-	ipfsClient *ipfsapi.Shell
+	ipfsClient1 *ipfsapi.Shell
+	ipfsClient2 *ipfsapi.Shell
 
 	suite.Suite
 }
@@ -52,7 +53,6 @@ func TestE2E(t *testing.T) {
 	}
 
 	os.Setenv("REGISTRY_CONFIGURATION_PATH", "./disco-e2e-config.yml")
-	os.Setenv("IPFS_PATH", "testdir/.ipfs")
 	go cmd.Main(context.Background())
 	suite.Run(t, &E2ETestSuite{})
 }
@@ -60,21 +60,38 @@ func TestE2E(t *testing.T) {
 func (s *E2ETestSuite) SetupTest() {
 	s.r = s.Require()
 
-	s.r.NoError(os.RemoveAll("testdir/cache"))
+	s.r.NoError(os.RemoveAll("testdir"))
 	s.r.NoError(os.MkdirAll("testdir", 0777))
 	s.startCleanIpfs()
 }
 
 func (s *E2ETestSuite) startCleanIpfs() {
 	_ = exec.Command("pkill", "ipfs").Run()
-	s.r.NoError(os.RemoveAll("testdir/.ipfs"))
+	s.r.NoError(os.RemoveAll("testdir/.ipfs1"))
+	s.r.NoError(os.RemoveAll("testdir/.ipfs2"))
 
+	os.Setenv("IPFS_PATH", "testdir/.ipfs1")
 	s.r.NoError(exec.Command("ipfs", "init").Run())
-	s.r.NoError(exec.Command("ipfs", "daemon", "--routing", "none", "--offline").Start())
+	s.r.NoError(exec.Command("cp", "config1", "testdir/.ipfs1/config").Run())
+	s.r.NoError(exec.Command("ipfs", "daemon").Start())
 
-	s.ipfsClient = ipfsapi.NewShell("http://localhost:5001")
+	s.ipfsClient1 = ipfsapi.NewShell("http://localhost:5051")
 	s.ensureAvailability("ipfs", func() error {
-		_, err := s.ipfsClient.FilesLs(context.Background(), "/")
+		_, err := s.ipfsClient1.FilesLs(context.Background(), "/")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	os.Setenv("IPFS_PATH", "testdir/.ipfs2")
+	s.r.NoError(exec.Command("ipfs", "init").Run())
+	s.r.NoError(exec.Command("cp", "config2", "testdir/.ipfs2/config").Run())
+	s.r.NoError(exec.Command("ipfs", "daemon").Start())
+
+	s.ipfsClient2 = ipfsapi.NewShell("http://localhost:5052")
+	s.ensureAvailability("ipfs", func() error {
+		_, err := s.ipfsClient2.FilesLs(context.Background(), "/")
 		if err != nil {
 			return err
 		}
@@ -84,8 +101,8 @@ func (s *E2ETestSuite) startCleanIpfs() {
 
 func (s *E2ETestSuite) ensureAvailability(name string, check func() error) {
 	var err error
-	for i := 0; i < processStartWaitSeconds*2; i++ {
-		time.Sleep(time.Millisecond * 500)
+	for i := 0; i < processStartWaitSeconds; i++ {
+		time.Sleep(time.Second)
 		if err = check(); err == nil {
 			return
 		}
@@ -113,7 +130,7 @@ func (s *E2ETestSuite) verifyFiles() {
 		expectedConfigBlob,
 		expectedLayerBlob,
 	} {
-		ipfsInfo, err := s.ipfsClient.FilesStat(context.Background(), contentPath)
+		ipfsInfo, err := s.ipfsClient2.FilesStat(context.Background(), contentPath)
 		s.r.NoError(err, contentPath)
 		s.r.Greater(ipfsInfo.CumulativeSize, uint64(0), contentPath)
 
@@ -122,7 +139,14 @@ func (s *E2ETestSuite) verifyFiles() {
 		s.r.Greater(fsInfo.Size(), int64(0), contentPath)
 	}
 
-	repos, err := s.ipfsClient.FilesLs(context.Background(), reposPath)
+	repos, err := s.ipfsClient1.FilesLs(context.Background(), reposPath)
+	s.r.NoError(err)
+	for _, repo := range repos {
+		if utils.IsCIDv1(repo.Name) {
+			return // we're good
+		}
+	}
+	repos, err = s.ipfsClient2.FilesLs(context.Background(), reposPath)
 	s.r.NoError(err)
 	for _, repo := range repos {
 		if utils.IsCIDv1(repo.Name) {
@@ -142,7 +166,7 @@ func (s *E2ETestSuite) TestPurgeIPFS_Pull() {
 	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
 
 	// it was able to pull without needing ipfs
-	_, err := s.ipfsClient.FilesStat(context.Background(), "/docker")
+	_, err := s.ipfsClient1.FilesStat(context.Background(), "/docker")
 	s.Error(err)
 }
 

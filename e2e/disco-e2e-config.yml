@@ -8,7 +8,8 @@ storage:
   ipfs:
     router:
       nodes:
-        - url: http://localhost:5001
+        - url: http://localhost:5051
+        - url: http://localhost:5052
     cache:
       filesystem:
         rootdirectory: ./testdir/cache
