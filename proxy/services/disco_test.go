@@ -147,8 +147,6 @@ func (s *Suite) TestMakeGlobalRepo() {
 	// And find the manifest link for the upload
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/repositories/myrepo/_manifests/tags/latest/current/link").
 		Return(io.NopCloser(bytes.NewBuffer([]byte("sha256:"+testManifestDigest))), nil)
-	// s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/repositories/"+testManifestDigest).
-	// 	Return(&ipfsapi.FilesStatObject{CumulativeSize: 0}, nil)
 	// And find the manifest blob from the repo
 	s.ipfsClient.EXPECT().FilesRead(s.ctx, registryBase+"/blobs/sha256/"+testManifestDigest[:2]+"/"+testManifestDigest+"/data").
 		Return(io.NopCloser(bytes.NewBufferString(testManifest)), nil)
@@ -166,7 +164,9 @@ func (s *Suite) TestMakeGlobalRepo() {
 	// And get the CID for the repo and duplicate with the base32 CID v1
 	s.ipfsClient.EXPECT().FilesStat(s.ctx, registryBase+"/repositories/myrepo").
 		Return(&ipfsapi.FilesStatObject{Hash: testCidv0}, nil)
-	s.ipfsNode.EXPECT().FilesCp(s.ctx, makeRepoPath("myrepo"), makeRepoPath(testCidv1)).
+	s.ipfsNode.EXPECT().FilesMkdir(s.ctx, repositoriesBase, gomock.Any()).Return(nil)
+	s.ipfsNode.EXPECT().FilesRm(s.ctx, makeRepoPath(testCidv1), true).Return(nil)
+	s.ipfsNode.EXPECT().FilesCp(s.ctx, fmt.Sprintf("/ipfs/%s", testCidv0), makeRepoPath(testCidv1)).
 		Return(nil)
 	// And duplicate the repo with digest name
 	s.ipfsNode.EXPECT().FilesMkdir(s.ctx, repositoriesBase, gomock.Any()).Return(nil)

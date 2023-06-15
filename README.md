@@ -4,6 +4,8 @@
 
 [OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md) conformant and Docker compatible **dis**tributed **co**ntainer registry, based on the awesome [Distribution](https://github.com/distribution/distribution) library and Kubo MFS API.
 
+Forta Network is currently using Disco in production to serve thousands of detection bot images!
+
 Disco registries share and replicate Docker images on IPFS!
 
 It can be run:
@@ -88,15 +90,16 @@ log:
     environment: development
 storage:
   ipfs:
+	  # You can work with multiple Kubo nodes.
+	  # The content is multiplexed when reading and writing.
+    # Peer your nodes with each other if you are using multiple.
     router:
-	  # you can work with multiple IPFS nodes
-	  # the content is multiplexed when reading and writing
       nodes:
         - url: http://localhost:5001
         # - url: http://other.url
-	# this allows replicating to a secondary storage (cache)
+	# This allows replicating to a secondary storage (cache)
 	# and serving from there so that the IPFS nodes do not
-	# take load when serving content in a centralized setup
+	# take load when serving content in a centralized setup.
     # cache:
     #   s3:
     #     accesskey: awsaccesskey
