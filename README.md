@@ -4,9 +4,13 @@
 
 [OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md) conformant and Docker compatible **dis**tributed **co**ntainer registry, based on the awesome [Distribution](https://github.com/distribution/distribution) library and Kubo MFS API.
 
-Forta Network is currently using Disco in production to serve thousands of detection bot images!
+Forta Network is currently using Disco in production to serve thousands of detection bot images.
 
-Disco registries share and replicate Docker images on IPFS!
+As a similar project and the main inspiration, please make sure to check our [IPDR](https://github.com/ipdr/ipdr)!
+
+## Use cases
+
+Disco registries share and replicate Docker images on IPFS.
 
 It can be run:
 
@@ -169,3 +173,13 @@ Disco allows specifying a secondary storage (cache) as explained in the [Configu
 As a result, with the useful configuration, it is possible to make Disco never touch the Kubo nodes.
 
 This is both a centralized and a decentralized configuration as pulls are scalable and the content is still served over IPFS!
+
+### Q5: How is this different than IPDR?
+
+Disco and IPDR do some things differently:
+
+- Disco uses the MFS API while IPDR uses a different subset of Kubo RPC API.
+- IPDR sits as a tool between the Docker Engine and IPFS to upload/download on demand. Disco is a registry server that speaks to IPFS and supports `docker pull` and `docker push` commands.
+- IPDR uses an adaptation of [Google's Container Registry](github.com/google/go-containerregistry) library. Disco depends on the [Distribution](https://github.com/distribution/distribution) librar and sits as a thin layer on top of it.
+- Disco supports a centralized configuration and can handle a lot of downloads while still serving images from IPFS. IPDR does not seem to have this purpose.
+- Disco supports [Distribution's custom configurations](https://github.com/distribution/distribution/blob/main/docs/configuration.md). IPDR does not arrive with such configuration options out of the box but it can be forked to support many custom features.
