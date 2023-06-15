@@ -6,7 +6,7 @@
 
 Forta Network is currently using Disco in production to serve thousands of detection bot images.
 
-As a similar project and the main inspiration, please make sure to check our [IPDR](https://github.com/ipdr/ipdr)!
+As a similar project and the main inspiration, please make sure to check out [IPDR](https://github.com/ipdr/ipdr)!
 
 ## Use cases
 
