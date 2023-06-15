@@ -5,7 +5,6 @@ ENV DISCO_DIR /go/src/github.com/forta-network/disco
 WORKDIR ${DISCO_DIR}
 COPY . ${DISCO_DIR}
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /disco/disco .
-COPY ./config/default-config.yaml /disco/config.yaml
 
 FROM alpine:3.18
 

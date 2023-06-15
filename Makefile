@@ -1,11 +1,11 @@
-.PHONY: run
+.PHONY: build
 build:
 	@mkdir -p build
-	@go build -o build/app
+	@go build -o build/disco
 
-.PHONY: build
+.PHONY: run
 run: build
-	@REGISTRY_CONFIGURATION_PATH=dev-config.yaml ./build/app
+	@REGISTRY_CONFIGURATION_PATH=dev-config.yaml ./build/disco
 
 .PHONY: docker-build
 docker-build:

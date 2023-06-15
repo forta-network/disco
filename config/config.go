@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 
 	"github.com/distribution/distribution/v3/configuration"
 	"github.com/kelseyhightower/envconfig"
@@ -12,8 +13,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	defaultHomeDirDiscoConfigPath = ".disco/config.yaml"
+)
+
 type envVars struct {
-	RegistryConfigurationPath string `envconfig:"registry_configuration_path" default:"./config/default-config.yaml"`
+	RegistryConfigurationPath string `envconfig:"registry_configuration_path"`
 	DiscoPort                 int    `envconfig:"disco_port" default:"1970"`
 }
 
@@ -54,6 +59,14 @@ var DiscoConfig struct {
 // Init parses and prepares all config variables.
 func Init() error {
 	envconfig.MustProcess("", &Vars)
+
+	if len(Vars.RegistryConfigurationPath) == 0 {
+		homeDirPath, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home dir: %v", err)
+		}
+		Vars.RegistryConfigurationPath = path.Join(homeDirPath, defaultHomeDirDiscoConfigPath)
+	}
 
 	file, err := os.Open(Vars.RegistryConfigurationPath)
 	if err != nil {
