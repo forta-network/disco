@@ -90,16 +90,16 @@ log:
     environment: development
 storage:
   ipfs:
-	  # You can work with multiple Kubo nodes.
-	  # The content is multiplexed when reading and writing.
+    # You can work with multiple Kubo nodes.
+    # The content is multiplexed when reading and writing.
     # Peer your nodes with each other if you are using multiple.
     router:
       nodes:
         - url: http://localhost:5001
         # - url: http://other.url
-	# This allows replicating to a secondary storage (cache)
-	# and serving from there so that the IPFS nodes do not
-	# take load when serving content in a centralized setup.
+    # This allows replicating to a secondary storage (cache)
+    # and serving from there so that the IPFS nodes do not
+    # take load when serving content in a centralized setup.
     # cache:
     #   s3:
     #     accesskey: awsaccesskey
