@@ -14,6 +14,8 @@ import (
 	"github.com/forta-network/disco/proxy/services"
 )
 
+const requestTimeout = time.Hour
+
 // New creates a new Disco proxy which executes pre and post hooks before/after communication
 // with the distribution server is done.
 func New() (*http.Server, error) {
@@ -27,8 +29,8 @@ func New() (*http.Server, error) {
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", config.Vars.DiscoPort),
 		Handler:      newHandler(rp, services.NewDiscoService(config.DiscoConfig.Disco.NoClone)),
-		ReadTimeout:  time.Minute * 10,
-		WriteTimeout: time.Minute * 10,
+		ReadTimeout:  requestTimeout,
+		WriteTimeout: requestTimeout,
 		IdleTimeout:  time.Second * 30,
 	}, nil
 }
