@@ -21,8 +21,8 @@ var (
 	processStartWaitSeconds = 60
 	pushImageRef            = "localhost:1970/test"
 
-	expectedImageSha = "2197ffa9bd16c893488bc26712a9dd28826daf2abb1a1dabf554fe32615a541d"
-	expectedImageCid = "bafybeicvnsxllo2cqihnyroi4ydbpvfhghrid6tfyxv2f3acoxgvg3ceoy"
+	expectedImageSha = "35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab"
+	expectedImageCid = "bafybeihfub2ktzp6a77zrihiwf6c2hex3nwxd7zl7u6tj3ueu5kstqk4ii"
 
 	unexpectedImageCid     = "bafybeielvnt5apaxbk6chthc4dc3p6vscpx3ai4uvti7gwh253j7facsxu"
 	unexpectedPullImageRef = fmt.Sprintf("localhost:1970/%s", unexpectedImageCid)
@@ -31,9 +31,10 @@ var (
 
 	expectedSha256Repo = path.Join(reposPath, expectedImageSha)
 
-	expectedManifestBlob = "/docker/registry/v2/blobs/sha256/21/2197ffa9bd16c893488bc26712a9dd28826daf2abb1a1dabf554fe32615a541d/data"
-	expectedConfigBlob   = "/docker/registry/v2/blobs/sha256/dd/dddc7578369a0eb6d94c6eb359fb15cc807e2874fbd7e40614ed0b348c45fd2c/data"
-	expectedLayerBlob    = "/docker/registry/v2/blobs/sha256/c1/c15cbdab5f8e3f3942c3461791546c53c54379cfc7746127fac6b0af00baf313/data"
+	expectedManifestBlob = "/docker/registry/v2/blobs/sha256/35/35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab/data"
+	expectedConfigBlob   = "/docker/registry/v2/blobs/sha256/16/165538b9f99adf71764e6e01627236bc7de03587ef8c39b621c159491466465e/data"
+	expectedLayerBlob1   = "/docker/registry/v2/blobs/sha256/04/04479ea8ab2597ba1679773da48df06a9e646e3e7b67b0eb2c8c0bc6c51eb598/data"
+	expectedLayerBlob2   = "/docker/registry/v2/blobs/sha256/d9/d96e79a5881296813985815a1fa73e2441e72769541b1fb32a0e14f2acf4d659/data"
 
 	cidImageRef = path.Join("localhost:1970", expectedImageCid)
 )
@@ -128,7 +129,8 @@ func (s *E2ETestSuite) verifyFiles() {
 
 		expectedManifestBlob,
 		expectedConfigBlob,
-		expectedLayerBlob,
+		expectedLayerBlob1,
+		expectedLayerBlob2,
 	} {
 		ipfsInfo, err := s.ipfsClient2.FilesStat(context.Background(), contentPath)
 		s.r.NoError(err, contentPath)

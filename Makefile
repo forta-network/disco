@@ -35,5 +35,6 @@ coverage: test
 
 .PHONY: e2e
 e2e:
-	docker build -t localhost:1970/test -f e2e/Dockerfile.empty ./e2e
+	docker pull nats:2.4
+	docker tag nats:2.4 localhost:1970/test
 	cd e2e && E2E_TEST=1 go test -v .
