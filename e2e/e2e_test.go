@@ -30,7 +30,6 @@ var (
 	reposPath = "/docker/registry/v2/repositories/"
 
 	expectedSha256Repo       = path.Join(reposPath, expectedImageSha)
-	expectedCidRepo          = path.Join(reposPath, expectedImageCid)
 	expectedCidRepoCacheOnly = path.Join(reposPath, expectedImageCidCacheOnly)
 
 	expectedManifestBlob = "/docker/registry/v2/blobs/sha256/35/35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab/data"
