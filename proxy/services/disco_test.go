@@ -10,6 +10,7 @@ import (
 	"time"
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
+	"github.com/forta-network/disco/config"
 	mock_multidriver "github.com/forta-network/disco/drivers/multidriver/mocks"
 	"github.com/forta-network/disco/interfaces"
 	mock_interfaces "github.com/forta-network/disco/interfaces/mocks"
@@ -282,7 +283,7 @@ func (s *Suite) TestCloneGlobalRepo_NoClone() {
 	// Given that a repo is to be cloned
 	// When "no clone" setting is true
 	// Then cloning should be a no-op
-	s.disco.noClone = true
+	config.NoClone = true
 	s.driver.EXPECT().Stat(gomock.Any(), makeDiscoFilePath(testCidv1)).Return(&fileInfo{
 		path:  makeDiscoFilePath(testCidv1),
 		size:  1,

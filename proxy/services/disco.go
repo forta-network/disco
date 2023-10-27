@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
+	"github.com/forta-network/disco/config"
 	"github.com/forta-network/disco/deps"
 	"github.com/forta-network/disco/drivers"
 	"github.com/forta-network/disco/drivers/ipfs"
@@ -19,8 +20,6 @@ import (
 // Disco service allows us to do Disco things on top of the
 // Distribution server.
 type Disco struct {
-	noClone       bool
-	cacheOnly     bool
 	getIpfsClient getIpfsClientFunc
 	getDriver     getDriverFunc
 }
@@ -29,10 +28,8 @@ type getIpfsClientFunc func() interfaces.IPFSClient
 type getDriverFunc func() storagedriver.StorageDriver
 
 // NewDiscoService creates a new Disco service.
-func NewDiscoService(noClone, cacheOnly bool) *Disco {
+func NewDiscoService() *Disco {
 	return &Disco{
-		noClone:       noClone,
-		cacheOnly:     cacheOnly,
 		getIpfsClient: deps.Get,
 		getDriver:     ipfs.Get,
 	}
@@ -88,26 +85,34 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		}()
 	}
 
+	// cache-only mode produces the cid v1 repo by converting
+	// the manifest digest into a cid v1 hash and keeps the compatibility
+	// of the references
+	if config.CacheOnly {
+		b, err := driver.GetContent(ctx, makeManifestLinkPath(repoName))
+		if err != nil {
+			return fmt.Errorf("failed to get manifest digest from cache-only driver: %v", err)
+		}
+		manifestDigest := string(b)[7:]
+		cacheCid, err := utils.ConvertSHA256HexToCIDv1(manifestDigest)
+		if err != nil {
+			return fmt.Errorf("failed to create cache-only cid: %v", err)
+		}
+		if _, err = drivers.Copy(ctx, driver, uploadRepoPath, makeRepoPath(manifestDigest)); err != nil {
+			return fmt.Errorf("failed to create cache-only manifest digest repo: %v", err)
+		}
+		if _, err = drivers.Copy(ctx, driver, uploadRepoPath, makeRepoPath(cacheCid)); err != nil {
+			return fmt.Errorf("failed to create cache-only cid repo: %v", err)
+		}
+		return err
+	}
+
 	// Step #1
 	manifestDigest, err := disco.digestFromLink(ctx, makeManifestLinkPath(repoName))
 	if err != nil {
 		return fmt.Errorf("failed to read the digest from the link: %v", err)
 	}
 	manifestDigestRepoPath := makeRepoPath(manifestDigest)
-
-	// cache-only mode produces the cid v1 repo by converting
-	// the manifest digest into a cid v1 hash and keeps the compatibility
-	// of the references
-	if disco.cacheOnly {
-		cacheCid, err := utils.ConvertSHA256HexToCIDv1(manifestDigest)
-		if err != nil {
-			return fmt.Errorf("failed to create cache-only cid: %v", err)
-		}
-		_, err = drivers.Copy(ctx, driver, manifestDigestRepoPath, makeRepoPath(cacheCid))
-		return err
-	}
-
-	// continue step #1
 	stat, err := driver.Stat(ctx, manifestDigestRepoPath)
 	if err == nil && stat.Size() > 0 {
 		log.Info("already made globally accessible - skipping")
@@ -194,7 +199,7 @@ func (disco *Disco) IsOnlyPullable(repoName string) bool {
 //
 // The end result in the IPFS node's MFS should look like the one from MakeGlobalRepo and all CIDs should match.
 func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error {
-	if disco.cacheOnly {
+	if config.CacheOnly {
 		return nil
 	}
 
@@ -228,7 +233,7 @@ func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error 
 		return fmt.Errorf("failed to check disco file using the driver: %v", err)
 	}
 
-	if disco.noClone {
+	if config.NoClone {
 		return nil
 	}
 

@@ -39,11 +39,12 @@ var (
 	Cache              configuration.Storage
 	CacheOnly          bool
 	RedirectTo         *url.URL
+	NoClone            bool
 )
 
-// DiscoConfig contains the extra configuration settings that blend with
+// discoConfig contains the extra configuration settings that blend with
 // the distribution library config.
-var DiscoConfig struct {
+var discoConfig struct {
 	Storage struct {
 		IPFS struct {
 			Router    RouterConfig          `yaml:"router"`
@@ -83,15 +84,16 @@ func Init() error {
 
 	file, _ = os.Open(Vars.RegistryConfigurationPath)
 	defer file.Close()
-	err = yaml.NewDecoder(file).Decode(&DiscoConfig)
+	err = yaml.NewDecoder(file).Decode(&discoConfig)
 	if err != nil {
 		return err
 	}
-	Router = DiscoConfig.Storage.IPFS.Router
-	Cache = DiscoConfig.Storage.IPFS.Cache
-	CacheOnly = DiscoConfig.Storage.IPFS.CacheOnly
-	if len(DiscoConfig.Storage.IPFS.Redirect) > 0 {
-		RedirectTo, err = url.Parse(DiscoConfig.Storage.IPFS.Redirect)
+	Router = discoConfig.Storage.IPFS.Router
+	Cache = discoConfig.Storage.IPFS.Cache
+	CacheOnly = discoConfig.Storage.IPFS.CacheOnly
+	NoClone = discoConfig.Disco.NoClone
+	if len(discoConfig.Storage.IPFS.Redirect) > 0 {
+		RedirectTo, err = url.Parse(discoConfig.Storage.IPFS.Redirect)
 		if err != nil {
 			return err
 		}

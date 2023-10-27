@@ -1,0 +1,28 @@
+version: 0.1
+log:
+  level: info
+  fields:
+    service: disco
+    environment: development
+storage:
+  ipfs:
+    cache:
+      filesystem:
+        rootdirectory: ./testdir/cache
+    cacheonly: true
+  delete:
+    enabled: false
+  maintenance:
+    uploadpurging:
+      enabled: false
+disco:
+  noclone: true
+http:
+  addr: :5000
+  debug:
+    addr: :5050
+    prometheus:
+      enabled: true
+      path: /metrics
+  headers:
+    X-Content-Type-Options: [nosniff]

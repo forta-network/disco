@@ -34,7 +34,7 @@ coverage: test
 	go tool cover -func=coverage.out | grep total | awk '{print substr($$3, 1, length($$3)-1)}'
 
 .PHONY: e2e
-e2e:
+e2e: build
 	docker pull nats:2.4
 	docker tag nats:2.4 localhost:1970/test
 	cd e2e && E2E_TEST=1 go test -v .

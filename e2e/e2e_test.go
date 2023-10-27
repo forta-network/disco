@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/forta-network/disco/cmd"
 	"github.com/forta-network/disco/utils"
 	ipfsapi "github.com/ipfs/go-ipfs-api"
 	"github.com/stretchr/testify/require"
@@ -21,15 +20,18 @@ var (
 	processStartWaitSeconds = 60
 	pushImageRef            = "localhost:1970/test"
 
-	expectedImageSha = "35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab"
-	expectedImageCid = "bafybeihfub2ktzp6a77zrihiwf6c2hex3nwxd7zl7u6tj3ueu5kstqk4ii"
+	expectedImageSha          = "35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab"
+	expectedImageCid          = "bafybeihfub2ktzp6a77zrihiwf6c2hex3nwxd7zl7u6tj3ueu5kstqk4ii"
+	expectedImageCidCacheOnly = "bafybeibv76jl7r7ielvls37d24jbmt3lkr6dvt74q2i3qbji2m2cqocjvm"
 
 	unexpectedImageCid     = "bafybeielvnt5apaxbk6chthc4dc3p6vscpx3ai4uvti7gwh253j7facsxu"
 	unexpectedPullImageRef = fmt.Sprintf("localhost:1970/%s", unexpectedImageCid)
 
 	reposPath = "/docker/registry/v2/repositories/"
 
-	expectedSha256Repo = path.Join(reposPath, expectedImageSha)
+	expectedSha256Repo       = path.Join(reposPath, expectedImageSha)
+	expectedCidRepo          = path.Join(reposPath, expectedImageCid)
+	expectedCidRepoCacheOnly = path.Join(reposPath, expectedImageCidCacheOnly)
 
 	expectedManifestBlob = "/docker/registry/v2/blobs/sha256/35/35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab/data"
 	expectedConfigBlob   = "/docker/registry/v2/blobs/sha256/16/165538b9f99adf71764e6e01627236bc7de03587ef8c39b621c159491466465e/data"
@@ -52,9 +54,6 @@ func TestE2E(t *testing.T) {
 	if os.Getenv("E2E_TEST") != "1" {
 		return
 	}
-
-	os.Setenv("REGISTRY_CONFIGURATION_PATH", "./disco-e2e-config.yml")
-	go cmd.Main(context.Background())
 	suite.Run(t, &E2ETestSuite{})
 }
 
@@ -64,6 +63,14 @@ func (s *E2ETestSuite) SetupTest() {
 	s.r.NoError(os.RemoveAll("testdir"))
 	s.r.NoError(os.MkdirAll("testdir", 0777))
 	s.startCleanIpfs()
+}
+
+func (s *E2ETestSuite) startDisco(configPath string) {
+	os.Setenv("REGISTRY_CONFIGURATION_PATH", configPath)
+	discoCmd := exec.Command("./../build/disco")
+	discoCmd.Stdout = os.Stdout
+	discoCmd.Stderr = os.Stdout
+	s.r.NoError(discoCmd.Start())
 }
 
 func (s *E2ETestSuite) startCleanIpfs() {
@@ -113,9 +120,12 @@ func (s *E2ETestSuite) ensureAvailability(name string, check func() error) {
 
 func (s *E2ETestSuite) TearDownTest() {
 	_ = exec.Command("pkill", "ipfs").Run()
+	_ = exec.Command("pkill", "disco").Run()
 }
 
 func (s *E2ETestSuite) TestPushVerify() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	s.verifyFiles()
@@ -159,6 +169,8 @@ func (s *E2ETestSuite) verifyFiles() {
 }
 
 func (s *E2ETestSuite) TestPurgeIPFS_Pull() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from ipfs (primary store)
@@ -173,6 +185,8 @@ func (s *E2ETestSuite) TestPurgeIPFS_Pull() {
 }
 
 func (s *E2ETestSuite) TestPurgeIPFS_PushAgainPull() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from ipfs (primary store)
@@ -187,6 +201,8 @@ func (s *E2ETestSuite) TestPurgeIPFS_PushAgainPull() {
 }
 
 func (s *E2ETestSuite) TestPurgeCache_Pull() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from filestore (secondary store)
@@ -197,6 +213,8 @@ func (s *E2ETestSuite) TestPurgeCache_Pull() {
 }
 
 func (s *E2ETestSuite) TestPurgeCache_PushAgainPull() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete from filestore (secondary store)
@@ -211,6 +229,8 @@ func (s *E2ETestSuite) TestPurgeCache_PushAgainPull() {
 }
 
 func (s *E2ETestSuite) TestPurgeCache_MissingCidRepo() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	// delete the cid repo from filestore (secondary store)
@@ -223,6 +243,8 @@ func (s *E2ETestSuite) TestPurgeCache_MissingCidRepo() {
 }
 
 func (s *E2ETestSuite) TestPullUnknown_NoClone() {
+	s.startDisco("./disco-e2e-config.yml")
+
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
 	var out bytes.Buffer
@@ -231,4 +253,25 @@ func (s *E2ETestSuite) TestPullUnknown_NoClone() {
 	pullCmd.Stderr = &out
 	s.r.Error(pullCmd.Run())
 	s.r.Contains(out.String(), "not found", out.String())
+}
+
+func (s *E2ETestSuite) TestCacheOnly() {
+	s.startDisco("disco-e2e-config-cache-only.yml")
+
+	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+
+	// verify that file exists in the cache storage
+	for _, contentPath := range []string{
+		expectedSha256Repo,
+		expectedCidRepoCacheOnly,
+
+		expectedManifestBlob,
+		expectedConfigBlob,
+		expectedLayerBlob1,
+		expectedLayerBlob2,
+	} {
+		fsInfo, err := os.Stat(path.Join("testdir/cache", contentPath))
+		s.r.NoError(err, contentPath)
+		s.r.Greater(fsInfo.Size(), int64(0), contentPath)
+	}
 }

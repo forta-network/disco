@@ -24,10 +24,6 @@ func Get() interfaces.IPFSClient {
 }
 
 func initialize() interfaces.IPFSClient {
-	if len(config.Router.Nodes) == 0 {
-		panic("no routed nodes")
-	}
-
 	log.Info("running with ipfs router client")
 	return ipfsclient.NewRouterClient(&config.Router)
 }
