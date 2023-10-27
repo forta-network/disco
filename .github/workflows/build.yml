@@ -25,13 +25,13 @@ jobs:
         skip-pkg-cache: true
         skip-build-cache: true
         version: v1.52.2
-    # - name: Prepare for E2E
-    #   run: |
-    #     sudo apt-get install wget
-    #     wget https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
-    #     tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
-    #     cd kubo
-    #     sudo bash install.sh
-    #     ipfs --version
-    # - name: E2E
-    #   run: make e2e
+    - name: Prepare for E2E tests
+      run: |
+        sudo apt-get install wget
+        wget https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+        tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
+        cd kubo
+        sudo bash install.sh
+        ipfs --version
+    - name: Run E2E tests
+      run: make e2e
