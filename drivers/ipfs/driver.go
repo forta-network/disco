@@ -63,6 +63,10 @@ func (df *driverFactory) Create(parameters map[string]interface{}) (storagedrive
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the cache driver (%s): %v", driverName, err)
 	}
+	if config.CacheOnly {
+		defaultDriver = cacheDriver
+		return nil, nil
+	}
 	defaultDriver, err = multidriver.New(config.RedirectTo, ipfsDriver, cacheDriver), nil
 	return defaultDriver, err
 }

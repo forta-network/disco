@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -38,6 +37,7 @@ var (
 	DistributionConfig *configuration.Configuration
 	Router             RouterConfig
 	Cache              configuration.Storage
+	CacheOnly          bool
 	RedirectTo         *url.URL
 )
 
@@ -46,9 +46,10 @@ var (
 var DiscoConfig struct {
 	Storage struct {
 		IPFS struct {
-			Router   RouterConfig          `yaml:"router"`
-			Cache    configuration.Storage `yaml:"cache"`
-			Redirect string                `yaml:"redirect"`
+			Router    RouterConfig          `yaml:"router"`
+			Cache     configuration.Storage `yaml:"cache"`
+			CacheOnly bool                  `yaml:"cacheonly"`
+			Redirect  string                `yaml:"redirect"`
 		} `yaml:"ipfs"`
 	} `yaml:"storage"`
 	Disco struct {
@@ -80,26 +81,19 @@ func Init() error {
 		return fmt.Errorf("error parsing %s: %v", Vars.RegistryConfigurationPath, err)
 	}
 
-	// Override/set IPFS config for the IPFS driver to consume.
-	// Following the original naming convention in https://github.com/distribution/distribution.
-	ipfsConfig := DistributionConfig.Storage["ipfs"]
-	if ipfsConfig["router"] == nil {
-		return errors.New("please specify 'router' in ipfs driver config")
+	file, _ = os.Open(Vars.RegistryConfigurationPath)
+	defer file.Close()
+	err = yaml.NewDecoder(file).Decode(&DiscoConfig)
+	if err != nil {
+		return err
 	}
-	if ipfsConfig["router"] != nil {
-		file, _ = os.Open(Vars.RegistryConfigurationPath)
-		defer file.Close()
-		err = yaml.NewDecoder(file).Decode(&DiscoConfig)
+	Router = DiscoConfig.Storage.IPFS.Router
+	Cache = DiscoConfig.Storage.IPFS.Cache
+	CacheOnly = DiscoConfig.Storage.IPFS.CacheOnly
+	if len(DiscoConfig.Storage.IPFS.Redirect) > 0 {
+		RedirectTo, err = url.Parse(DiscoConfig.Storage.IPFS.Redirect)
 		if err != nil {
 			return err
-		}
-		Router = DiscoConfig.Storage.IPFS.Router
-		Cache = DiscoConfig.Storage.IPFS.Cache
-		if len(DiscoConfig.Storage.IPFS.Redirect) > 0 {
-			RedirectTo, err = url.Parse(DiscoConfig.Storage.IPFS.Redirect)
-			if err != nil {
-				return err
-			}
 		}
 	}
 

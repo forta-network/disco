@@ -44,3 +44,11 @@ func TestIsIPFSPath(t *testing.T) {
 	r.True(IsIPFSPath(fmt.Sprintf("/ipfs/%s", testCidv0)))
 	r.False(IsIPFSPath("/foo/bar"))
 }
+
+func TestConvertSHA256HexToCIDv1(t *testing.T) {
+	r := require.New(t)
+
+	cidStr, err := ConvertSHA256HexToCIDv1(testManifestDigest)
+	r.NoError(err)
+	r.Equal("bafybeig4u4jfptjookcauipqgizdjozogp7knwkj7ihsdriqefdpla2inm", cidStr)
+}

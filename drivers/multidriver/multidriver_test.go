@@ -195,7 +195,7 @@ func (s *DriverTestSuite) TestReplicate() {
 	}, nil)
 	s.primary.EXPECT().Walk(gomock.Any(), testPath, gomock.Any()).Return(nil)
 
-	info, err := s.driver.replicate(context.Background(), s.primary, s.secondary, testPath)
+	info, err := Replicate(context.Background(), s.primary, s.secondary, testPath, testPath, false)
 	s.r.NoError(err)
 	s.r.Nil(info)
 
@@ -208,7 +208,7 @@ func (s *DriverTestSuite) TestReplicate() {
 	s.primary.EXPECT().Name().Return("primary")
 	s.secondary.EXPECT().Name().Return("secondary")
 
-	info, err = s.driver.replicate(context.Background(), s.primary, s.secondary, testPath)
+	info, err = Replicate(context.Background(), s.primary, s.secondary, testPath, testPath, false)
 	s.r.NoError(err)
 	s.r.Nil(info)
 }

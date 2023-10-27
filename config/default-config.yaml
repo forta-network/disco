@@ -26,6 +26,7 @@ storage:
     #     multipartcopymaxconcurrency: 100
     #     multipartcopythresholdsize: 33554432
     #     rootdirectory: /s3/object/name/prefix
+    # cacheonly: true
     # redirect: https://serve.blobs.directly.from.bucket.url
   maintenance:
     uploadpurging:

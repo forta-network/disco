@@ -7,6 +7,7 @@ import (
 
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/forta-network/disco/deps"
+	"github.com/forta-network/disco/drivers"
 	"github.com/forta-network/disco/drivers/ipfs"
 	"github.com/forta-network/disco/drivers/multidriver"
 	"github.com/forta-network/disco/interfaces"
@@ -19,6 +20,7 @@ import (
 // Distribution server.
 type Disco struct {
 	noClone       bool
+	cacheOnly     bool
 	getIpfsClient getIpfsClientFunc
 	getDriver     getDriverFunc
 }
@@ -27,9 +29,10 @@ type getIpfsClientFunc func() interfaces.IPFSClient
 type getDriverFunc func() storagedriver.StorageDriver
 
 // NewDiscoService creates a new Disco service.
-func NewDiscoService(noClone bool) *Disco {
+func NewDiscoService(noClone, cacheOnly bool) *Disco {
 	return &Disco{
 		noClone:       noClone,
+		cacheOnly:     cacheOnly,
 		getIpfsClient: deps.Get,
 		getDriver:     ipfs.Get,
 	}
@@ -91,6 +94,20 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		return fmt.Errorf("failed to read the digest from the link: %v", err)
 	}
 	manifestDigestRepoPath := makeRepoPath(manifestDigest)
+
+	// cache-only mode produces the cid v1 repo by converting
+	// the manifest digest into a cid v1 hash and keeps the compatibility
+	// of the references
+	if disco.cacheOnly {
+		cacheCid, err := utils.ConvertSHA256HexToCIDv1(manifestDigest)
+		if err != nil {
+			return fmt.Errorf("failed to create cache-only cid: %v", err)
+		}
+		_, err = drivers.Copy(ctx, driver, manifestDigestRepoPath, makeRepoPath(cacheCid))
+		return err
+	}
+
+	// continue step #1
 	stat, err := driver.Stat(ctx, manifestDigestRepoPath)
 	if err == nil && stat.Size() > 0 {
 		log.Info("already made globally accessible - skipping")
@@ -177,6 +194,10 @@ func (disco *Disco) IsOnlyPullable(repoName string) bool {
 //
 // The end result in the IPFS node's MFS should look like the one from MakeGlobalRepo and all CIDs should match.
 func (disco *Disco) CloneGlobalRepo(ctx context.Context, repoName string) error {
+	if disco.cacheOnly {
+		return nil
+	}
+
 	// Step #1
 	if !utils.IsCIDv1(repoName) {
 		log.WithField("repository", repoName).Debugf("not a cidv1 name - not attempting to clone from ipfs")
