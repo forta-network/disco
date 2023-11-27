@@ -47,6 +47,7 @@ func (df *driverFactory) Create(parameters map[string]interface{}) (storagedrive
 		return nil, fmt.Errorf("failed to create ipfs driver: %v", err)
 	}
 	if config.Cache == nil {
+		defaultDriver = ipfsDriver
 		return ipfsDriver, nil
 	}
 	// create multidriver by using cache as secondary
