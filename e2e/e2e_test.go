@@ -174,7 +174,7 @@ func (s *E2ETestSuite) verifyFiles() {
 func getImageCid() (foundCid string) {
 	filepath.WalkDir("testdir/cache", func(currPath string, d fs.DirEntry, err error) error {
 		if len(foundCid) > 0 {
-			return filepath.SkipAll
+			return nil
 		}
 		if strings.Contains(currPath, "bafybei") {
 			for _, segment := range strings.Split(currPath, "/") {
