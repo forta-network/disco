@@ -3,6 +3,12 @@ module github.com/forta-network/disco
 go 1.19
 
 require (
+	github.com/aws/aws-sdk-go v1.34.9
+	github.com/aws/aws-sdk-go-v2 v1.24.0
+	github.com/aws/aws-sdk-go-v2/config v1.26.2
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.13
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.15.9
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.7
 	github.com/distribution/distribution/v3 v3.0.0-20210602065436-4f27e1934ccc
 	github.com/golang/mock v1.6.0
 	github.com/ipfs/go-cid v0.0.7
@@ -19,7 +25,20 @@ require (
 	github.com/Azure/azure-sdk-for-go v16.2.1+incompatible // indirect
 	github.com/Azure/go-autorest v10.8.1+incompatible // indirect
 	github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d // indirect
-	github.com/aws/aws-sdk-go v1.34.9 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.5.4 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.2.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.2.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.16.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.18.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.6 // indirect
+	github.com/aws/smithy-go v1.19.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
@@ -41,7 +60,7 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-ipfs-files v0.0.8 // indirect
-	github.com/jmespath/go-jmespath v0.3.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect
 	github.com/libp2p/go-flow-metrics v0.0.3 // indirect

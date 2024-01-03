@@ -25,6 +25,7 @@ import (
 
 	// then init() the custom drivers
 	_ "github.com/forta-network/disco/drivers/ipfs"
+	_ "github.com/forta-network/disco/drivers/r2"
 
 	"github.com/forta-network/disco/config"
 	"github.com/forta-network/disco/proxy"
