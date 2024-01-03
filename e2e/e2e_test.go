@@ -172,7 +172,7 @@ func (s *E2ETestSuite) verifyFiles() {
 }
 
 func getImageCid() (foundCid string) {
-	filepath.WalkDir("testdir/cache", func(currPath string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir("testdir/cache", func(currPath string, d fs.DirEntry, err error) error {
 		if len(foundCid) > 0 {
 			return nil
 		}
@@ -186,6 +186,9 @@ func getImageCid() (foundCid string) {
 		}
 		return nil
 	})
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 
