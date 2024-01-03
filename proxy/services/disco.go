@@ -104,6 +104,9 @@ func (disco *Disco) MakeGlobalRepo(ctx context.Context, repoName string) error {
 		if _, err = drivers.Copy(ctx, driver, uploadRepoPath, makeRepoPath(cacheCid)); err != nil {
 			return fmt.Errorf("failed to create cache-only cid repo: %v", err)
 		}
+		if _, err = drivers.Copy(ctx, driver, makeTagPathFor(manifestDigest, "latest"), makeTagPathFor(manifestDigest, cacheCid)); err != nil {
+			return fmt.Errorf("failed to create manifest digest tag in cid repo: %v", err)
+		}
 		return err
 	}
 

@@ -24,8 +24,9 @@ var (
 	expectedImageCid          = "bafybeihfub2ktzp6a77zrihiwf6c2hex3nwxd7zl7u6tj3ueu5kstqk4ii"
 	expectedImageCidCacheOnly = "bafybeibv76jl7r7ielvls37d24jbmt3lkr6dvt74q2i3qbji2m2cqocjvm"
 
-	unexpectedImageCid     = "bafybeielvnt5apaxbk6chthc4dc3p6vscpx3ai4uvti7gwh253j7facsxu"
-	unexpectedPullImageRef = fmt.Sprintf("localhost:1970/%s", unexpectedImageCid)
+	unexpectedImageCid            = "bafybeielvnt5apaxbk6chthc4dc3p6vscpx3ai4uvti7gwh253j7facsxu"
+	unexpectedPullImageRef        = fmt.Sprintf("localhost:1970/%s", unexpectedImageCid)
+	expectedPullImageRefCacheOnly = fmt.Sprintf("localhost:1970/%s", expectedImageSha)
 
 	reposPath = "/docker/registry/v2/repositories/"
 
@@ -36,6 +37,8 @@ var (
 	expectedConfigBlob   = "/docker/registry/v2/blobs/sha256/16/165538b9f99adf71764e6e01627236bc7de03587ef8c39b621c159491466465e/data"
 	expectedLayerBlob1   = "/docker/registry/v2/blobs/sha256/04/04479ea8ab2597ba1679773da48df06a9e646e3e7b67b0eb2c8c0bc6c51eb598/data"
 	expectedLayerBlob2   = "/docker/registry/v2/blobs/sha256/d9/d96e79a5881296813985815a1fa73e2441e72769541b1fb32a0e14f2acf4d659/data"
+
+	expectedCidTagCacheOnly = path.Join(reposPath, expectedImageSha, "_manifests", "tags", expectedImageCidCacheOnly)
 
 	cidImageRef = path.Join("localhost:1970", expectedImageCid)
 )
@@ -259,6 +262,12 @@ func (s *E2ETestSuite) TestCacheOnly() {
 
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
 
+	pullCmd := exec.Command("docker", "pull", "-a", expectedPullImageRefCacheOnly)
+	out := bytes.NewBufferString("")
+	pullCmd.Stdout = out
+	s.r.NoError(pullCmd.Run())
+	s.r.Contains(out.String(), expectedImageCidCacheOnly)
+
 	// verify that file exists in the cache storage
 	for _, contentPath := range []string{
 		expectedSha256Repo,
@@ -268,6 +277,8 @@ func (s *E2ETestSuite) TestCacheOnly() {
 		expectedConfigBlob,
 		expectedLayerBlob1,
 		expectedLayerBlob2,
+
+		expectedCidTagCacheOnly,
 	} {
 		fsInfo, err := os.Stat(path.Join("testdir/cache", contentPath))
 		s.r.NoError(err, contentPath)
