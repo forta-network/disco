@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,8 +23,8 @@ var (
 	processStartWaitSeconds = 60
 	pushImageRef            = "localhost:1970/test"
 
-	expectedImageSha          = "35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab"
-	expectedImageCid          = "bafybeihfub2ktzp6a77zrihiwf6c2hex3nwxd7zl7u6tj3ueu5kstqk4ii"
+	expectedImageSha = "35ff92bfc7e822eab96fe3d712164f6b547c3acffc8691b80528d334283849ab"
+
 	expectedImageCidCacheOnly = "bafybeibv76jl7r7ielvls37d24jbmt3lkr6dvt74q2i3qbji2m2cqocjvm"
 
 	unexpectedImageCid            = "bafybeielvnt5apaxbk6chthc4dc3p6vscpx3ai4uvti7gwh253j7facsxu"
@@ -39,8 +42,6 @@ var (
 	expectedLayerBlob2   = "/docker/registry/v2/blobs/sha256/d9/d96e79a5881296813985815a1fa73e2441e72769541b1fb32a0e14f2acf4d659/data"
 
 	expectedCidTagCacheOnly = path.Join(reposPath, expectedImageSha, "_manifests", "tags", expectedImageCidCacheOnly)
-
-	cidImageRef = path.Join("localhost:1970", expectedImageCid)
 )
 
 type E2ETestSuite struct {
@@ -170,16 +171,40 @@ func (s *E2ETestSuite) verifyFiles() {
 	s.r.FailNow("no cid repos found in ipfs")
 }
 
+func getImageCid() (foundCid string) {
+	filepath.WalkDir("testdir/cache", func(currPath string, d fs.DirEntry, err error) error {
+		if len(foundCid) > 0 {
+			return filepath.SkipAll
+		}
+		if strings.Contains(currPath, "bafybei") {
+			for _, segment := range strings.Split(currPath, "/") {
+				if strings.Contains(segment, "bafybei") {
+					foundCid = segment
+					return nil
+				}
+			}
+		}
+		return nil
+	})
+	return
+}
+
+func getImagePullRef(imageName string) string {
+	return path.Join("localhost:1970", imageName)
+}
+
 func (s *E2ETestSuite) TestPurgeIPFS_Pull() {
 	s.startDisco("./disco-e2e-config.yml")
 
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+	imageCid := getImageCid()
+	imageCidPullRef := getImagePullRef(imageCid)
 
 	// delete from ipfs (primary store)
 	s.startCleanIpfs()
 
 	// pull
-	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+	s.r.NoError(exec.Command("docker", "pull", imageCidPullRef).Run())
 
 	// it was able to pull without needing ipfs
 	_, err := s.ipfsClient1.FilesStat(context.Background(), "/docker")
@@ -190,6 +215,8 @@ func (s *E2ETestSuite) TestPurgeIPFS_PushAgainPull() {
 	s.startDisco("./disco-e2e-config.yml")
 
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+	imageCid := getImageCid()
+	imageCidPullRef := getImagePullRef(imageCid)
 
 	// delete from ipfs (primary store)
 	s.startCleanIpfs()
@@ -199,25 +226,29 @@ func (s *E2ETestSuite) TestPurgeIPFS_PushAgainPull() {
 
 	s.verifyFiles()
 
-	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+	s.r.NoError(exec.Command("docker", "pull", imageCidPullRef).Run())
 }
 
 func (s *E2ETestSuite) TestPurgeCache_Pull() {
 	s.startDisco("./disco-e2e-config.yml")
 
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+	imageCid := getImageCid()
+	imageCidPullRef := getImagePullRef(imageCid)
 
 	// delete from filestore (secondary store)
 	s.r.NoError(os.RemoveAll("testdir/cache"))
 
 	// pull
-	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+	s.r.NoError(exec.Command("docker", "pull", imageCidPullRef).Run())
 }
 
 func (s *E2ETestSuite) TestPurgeCache_PushAgainPull() {
 	s.startDisco("./disco-e2e-config.yml")
 
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+	imageCid := getImageCid()
+	imageCidPullRef := getImagePullRef(imageCid)
 
 	// delete from filestore (secondary store)
 	s.r.NoError(os.RemoveAll("testdir/cache"))
@@ -227,19 +258,21 @@ func (s *E2ETestSuite) TestPurgeCache_PushAgainPull() {
 
 	s.verifyFiles()
 
-	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+	s.r.NoError(exec.Command("docker", "pull", imageCidPullRef).Run())
 }
 
 func (s *E2ETestSuite) TestPurgeCache_MissingCidRepo() {
 	s.startDisco("./disco-e2e-config.yml")
 
 	s.r.NoError(exec.Command("docker", "push", pushImageRef).Run())
+	imageCid := getImageCid()
+	imageCidPullRef := getImagePullRef(imageCid)
 
 	// delete the cid repo from filestore (secondary store)
-	s.r.NoError(os.RemoveAll(path.Join("testdir/cache/docker/registry/v2/repositories", expectedImageCid)))
+	s.r.NoError(os.RemoveAll(path.Join("testdir/cache/docker/registry/v2/repositories", imageCid)))
 
 	// pull should replicate
-	s.r.NoError(exec.Command("docker", "pull", cidImageRef).Run())
+	s.r.NoError(exec.Command("docker", "pull", imageCidPullRef).Run())
 
 	s.verifyFiles()
 }
