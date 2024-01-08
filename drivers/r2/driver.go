@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/forta-network/disco/interfaces"
+	"github.com/hashicorp/go-multierror"
 
 	dcontext "github.com/distribution/distribution/v3/context"
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
@@ -197,11 +198,6 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 		return nil, fmt.Errorf("the skipVerify parameter should be a boolean")
 	}
 
-	keyID := parameters["keyid"]
-	if keyID == nil {
-		keyID = ""
-	}
-
 	chunkSize, err := getParameterAsInt64(parameters, "chunksize", defaultChunkSize, minChunkSize, maxChunkSize)
 	if err != nil {
 		return nil, err
@@ -225,11 +221,6 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 	rootDirectory := parameters["rootdirectory"]
 	if rootDirectory == nil {
 		rootDirectory = ""
-	}
-
-	userAgent := parameters["useragent"]
-	if userAgent == nil {
-		userAgent = ""
 	}
 
 	params := DriverParameters{
@@ -704,13 +695,14 @@ func (d *driver) Delete(ctx context.Context, path string) error {
 			if len(resp.Errors) > 0 {
 				// NOTE: AWS SDK s3.Error does not implement error interface which
 				// is pretty intensely sad, so we have to do away with this for now.
-				errs := make([]error, 0, len(resp.Errors))
+				var errs multierror.Error
 				for _, err := range resp.Errors {
-					errs = append(errs, errors.New(*err.Message))
+					errs.Errors = append(errs.Errors, errors.New(*err.Message))
 				}
+
 				return storagedriver.Error{
 					DriverName: driverName,
-					// Errs:       errs,
+					Enclosed:   errs.Unwrap(),
 				}
 			}
 		}
@@ -875,7 +867,6 @@ func (d *driver) doWalk(parentCtx context.Context, objectCount *int64, path, pre
 				// is file, stop gracefully
 				return err
 			}
-			retError = err
 			return err
 		}
 	}
@@ -1025,7 +1016,7 @@ func (w *writer) Write(p []byte) (int, error) {
 			},
 		})
 		if err != nil {
-			w.driver.R2.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			_, _ = w.driver.R2.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 				Bucket:   aws.String(w.driver.Bucket),
 				Key:      aws.String(w.key),
 				UploadId: aws.String(w.uploadID),
@@ -1207,7 +1198,7 @@ func (w *writer) Commit() error {
 		},
 	})
 	if err != nil {
-		w.driver.R2.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		_, _ = w.driver.R2.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 			Bucket:   aws.String(w.driver.Bucket),
 			Key:      aws.String(w.key),
 			UploadId: aws.String(w.uploadID),

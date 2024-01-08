@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.7
 	github.com/distribution/distribution/v3 v3.0.0-20210602065436-4f27e1934ccc
 	github.com/golang/mock v1.6.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/ipfs/go-cid v0.0.7
 	github.com/ipfs/go-ipfs-api v0.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -58,6 +59,7 @@ require (
 	github.com/gomodule/redigo v1.8.2 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-ipfs-files v0.0.8 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
