@@ -3,8 +3,10 @@ package r2
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -126,4 +128,97 @@ func (s *DriverTestSuite) TestWriter() {
 	// Commit and Close
 	s.r.NoError(writer.Commit())
 	s.r.NoError(writer.Close())
+}
+
+func (s *DriverTestSuite) TestPutContent() {
+	s.r2Client.EXPECT().PutObject(gomock.Any(), gomock.Any()).Return(&s3.PutObjectOutput{}, nil)
+
+	err := s.driver.PutContent(context.Background(), testPath, []byte("1"))
+	s.r.NoError(err)
+}
+
+func (s *DriverTestSuite) TestStat() {
+	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.ListObjectsV2Output{
+			Contents: []types.Object{{
+				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Size:         aws.Int64(123),
+				LastModified: aws.Time(time.Now()),
+			}},
+		}, nil)
+
+	stat, err := s.driver.Stat(context.Background(), testPath)
+	s.r.NoError(err)
+	s.r.NotNil(stat)
+}
+
+func (s *DriverTestSuite) TestList() {
+	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.ListObjectsV2Output{
+			IsTruncated: aws.Bool(false),
+			Contents: []types.Object{{
+				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Size:         aws.Int64(123),
+				LastModified: aws.Time(time.Now()),
+			}},
+		}, nil)
+
+	list, err := s.driver.List(context.Background(), testPath)
+	s.r.NoError(err)
+	s.r.Equal([]string{"/test-path/x"}, list)
+}
+
+func (s *DriverTestSuite) TestMove() {
+	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.ListObjectsV2Output{
+			Contents: []types.Object{{
+				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Size:         aws.Int64(123),
+				LastModified: aws.Time(time.Now()),
+			}},
+		}, nil)
+
+	s.r2Client.EXPECT().CopyObject(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.CopyObjectOutput{}, nil)
+
+	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.ListObjectsV2Output{
+			Contents: []types.Object{{
+				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Size:         aws.Int64(123),
+				LastModified: aws.Time(time.Now()),
+			}},
+		}, nil)
+
+	s.r2Client.EXPECT().DeleteObjects(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.DeleteObjectsOutput{}, nil)
+
+	s.r.NoError(s.driver.Move(context.Background(), testPath, testPath+"1"))
+}
+
+func (s *DriverTestSuite) TestDelete() {
+	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any()).
+		Return(&s3.ListObjectsV2Output{
+			Contents: []types.Object{{
+				Key: aws.String(fmt.Sprintf("test-path/x")),
+			}},
+		}, nil)
+	s.r2Client.EXPECT().DeleteObjects(gomock.Any(), gomock.Any()).Return(&s3.DeleteObjectsOutput{}, nil)
+
+	s.r.NoError(s.driver.Delete(context.Background(), testPath))
+}
+
+func (s *DriverTestSuite) TestWalk() {
+	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&s3.ListObjectsV2Output{
+			Contents: []types.Object{{
+				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Size:         aws.Int64(123),
+				LastModified: aws.Time(time.Now()),
+			}},
+		}, nil)
+
+	s.r.NoError(s.driver.Walk(context.Background(), testPath, func(fileInfo storagedriver.FileInfo) error {
+		return nil
+	}))
 }
