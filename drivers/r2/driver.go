@@ -1,3 +1,7 @@
+// r2 package is inspired by a proposal in distribution/distribution repository, created by tpoxa
+// Discussion: https://github.com/distribution/distribution/pull/3940
+// Revision: https://github.com/container-registry/distribution/tree/r2-multipart-issue
+// License at revision: https://github.com/container-registry/distribution/blob/r2-multipart-issue/LICENSE
 package r2
 
 import (
