@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/forta-network/disco/interfaces"
 	"github.com/hashicorp/go-multierror"
 
@@ -99,6 +99,7 @@ type driver struct {
 	MultipartCopyThresholdSize  int64
 	MultipartCombineSmallPart   bool
 	RootDirectory               string
+	presignClient               *s3.PresignClient
 }
 
 type baseEmbed struct {
@@ -288,9 +289,10 @@ func New(params DriverParameters) (*Driver, error) {
 	}
 
 	r2Client := s3.NewFromConfig(cfg)
-
+	presignClient := s3.NewPresignClient(r2Client)
 	d := &driver{
 		R2:                          r2Client,
+		presignClient:               presignClient,
 		Bucket:                      params.Bucket,
 		ChunkSize:                   params.ChunkSize,
 		MultipartCopyChunkSize:      params.MultipartCopyChunkSize,
@@ -665,8 +667,9 @@ func (d *driver) Delete(ctx context.Context, path string) error {
 		}
 
 		for _, key := range resp.Contents {
+			k := *key.Key
 			// Skip if we encounter a key that is not a subpath (so that deleting "/a" does not delete "/ab").
-			if len(*key.Key) > len(s3Path) && (*key.Key)[len(s3Path)] != '/' {
+			if len(k) > len(s3Path) && k[len(s3Path)] != '/' {
 				continue
 			}
 			s3Objects = append(s3Objects, types.ObjectIdentifier{
@@ -725,7 +728,7 @@ func (d *driver) Delete(ctx context.Context, path string) error {
 
 // URLFor returns a URL which may be used to retrieve the content stored at the given path.
 // May return an UnsupportedMethodErr in certain StorageDriver implementations.
-func (d *driver) URLFor(_ context.Context, _ string, options map[string]interface{}) (string, error) {
+func (d *driver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
 	methodString := http.MethodGet
 	method, ok := options["method"]
 	if ok {
@@ -744,24 +747,27 @@ func (d *driver) URLFor(_ context.Context, _ string, options map[string]interfac
 		}
 	}
 
-	var req *request.Request
+	var (
+		presignedURL *v4.PresignedHTTPRequest
+		err          error
+	)
 
 	switch methodString {
 	case http.MethodGet:
-		// req, _ = d.R2.GetObject(ctx, &s3.GetObjectInput{
-		// 	Bucket: aws.String(d.Bucket),
-		// 	Key:    aws.String(d.s3Path(path)),
-		// })
+		presignedURL, err = d.presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+			Bucket: aws.String(d.Bucket),
+			Key:    aws.String(d.s3Path(path)),
+		}, s3.WithPresignExpires(expiresIn))
 	case http.MethodHead:
-		// req, _ = d.R2.HeadObjectRequest(&s3.HeadObjectInput{
-		// 	Bucket: aws.String(d.Bucket),
-		// 	Key:    aws.String(d.s3Path(path)),
-		// })
+		presignedURL, err = d.presignClient.PresignHeadObject(ctx, &s3.HeadObjectInput{
+			Bucket: aws.String(d.Bucket),
+			Key:    aws.String(d.s3Path(path)),
+		}, s3.WithPresignExpires(expiresIn))
 	default:
 		panic("unreachable")
 	}
 
-	return req.Presign(expiresIn)
+	return presignedURL.URL, err
 }
 
 // Walk traverses a filesystem defined within driver, starting
