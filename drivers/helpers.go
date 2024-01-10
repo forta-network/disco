@@ -13,8 +13,9 @@ func FixUploadPath(path string) string {
 	if !strings.Contains(path, "/_uploads") {
 		return path
 	}
-	newPath := "/docker/registry/v2/uploads"
+	newPath := "/disco-uploads"
 	var append bool
+	// append the segments after "_uploads"
 	for _, segment := range strings.Split(path, "/") {
 		if append {
 			newPath += "/" + segment
