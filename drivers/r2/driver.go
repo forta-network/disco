@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -134,6 +135,16 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 	secretKey := parameters["secretkey"]
 	if secretKey == nil {
 		secretKey = ""
+	}
+
+	// use environment variables to override secrets
+	accessKeyEnv := os.Getenv("R2_ACCESS_KEY")
+	if accessKeyEnv != "" {
+		accessKey = accessKeyEnv
+	}
+	secretKeyEnv := os.Getenv("R2_SECRET_KEY")
+	if secretKeyEnv != "" {
+		secretKey = secretKeyEnv
 	}
 
 	regionEndpoint := parameters["regionendpoint"]
