@@ -13,6 +13,7 @@ import (
 	"github.com/distribution/distribution/v3/registry/storage/driver/factory"
 	"github.com/forta-network/disco/config"
 	"github.com/forta-network/disco/deps"
+	"github.com/forta-network/disco/drivers"
 	"github.com/forta-network/disco/drivers/filewriter"
 	"github.com/forta-network/disco/drivers/multidriver"
 	"github.com/forta-network/disco/interfaces"
@@ -113,6 +114,7 @@ func (d *driver) Name() string {
 
 // GetContent retrieves the content stored at "path" as a []byte.
 func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
+	path = drivers.FixUploadPath(path)
 	readCloser, err := d.Reader(ctx, path, 0)
 	if err != nil {
 		return nil, err
@@ -123,12 +125,14 @@ func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
 
 // PutContent stores the []byte content at a location designated by "path".
 func (d *driver) PutContent(ctx context.Context, path string, contents []byte) error {
+	path = drivers.FixUploadPath(path)
 	return d.api.FilesWrite(ctx, path, bytes.NewBuffer(contents), ipfsapi.FilesWrite.Create(true), ipfsapi.FilesWrite.Parents(true))
 }
 
 // Reader retrieves an io.ReadCloser for the content stored at "path" with a
 // given byte offset.
 func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
+	path = drivers.FixUploadPath(path)
 	reader, err := d.api.FilesRead(ctx, path, ipfsapi.FilesRead.Offset(offset))
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
@@ -142,6 +146,7 @@ func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.Read
 // Writer returns a FileWriter which will store the content written to it
 // at the location designated by "path" after the call to Commit.
 func (d *driver) Writer(ctx context.Context, path string, shouldAppend bool) (storagedriver.FileWriter, error) {
+	path = drivers.FixUploadPath(path)
 	fileOpts := []ipfsapi.FilesOpt{ipfsapi.FilesWrite.Create(true), ipfsapi.FilesWrite.Parents(true)}
 	var offset int64
 	if shouldAppend {
@@ -175,6 +180,7 @@ func isNotFoundErr(err error) bool {
 // Stat retrieves the FileInfo for the given path, including the current size
 // in bytes and the creation time.
 func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo, error) {
+	path = drivers.FixUploadPath(path)
 	stat, err := d.api.FilesStat(ctx, path)
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
@@ -187,6 +193,7 @@ func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo,
 
 // List returns a list of the objects that are direct descendants of the given path.
 func (d *driver) List(ctx context.Context, path string) ([]string, error) {
+	path = drivers.FixUploadPath(path)
 	results, err := d.api.FilesLs(ctx, path)
 	if err != nil && isNotFoundErr(err) {
 		return nil, storagedriver.PathNotFoundError{Path: path, DriverName: driverName}
@@ -203,6 +210,8 @@ func (d *driver) List(ctx context.Context, path string) ([]string, error) {
 
 // Move moves an object stored at sourcePath to destPath, removing the original object.
 func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
+	sourcePath = drivers.FixUploadPath(sourcePath)
+	destPath = drivers.FixUploadPath(destPath)
 	folderPath := destPath[:strings.LastIndex(destPath, "/")+1]
 	if err := d.api.FilesMkdir(ctx, folderPath, ipfsapi.FilesMkdir.Parents(true)); err != nil {
 		return err
@@ -212,6 +221,7 @@ func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) e
 
 // Delete recursively deletes all objects stored at "path" and its subpaths.
 func (d *driver) Delete(ctx context.Context, path string) error {
+	path = drivers.FixUploadPath(path)
 	return d.api.FilesRm(ctx, path, true)
 }
 
@@ -225,5 +235,6 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 // Walk traverses a filesystem defined within driver, starting
 // from the given path, calling f on each file.
 func (d *driver) Walk(ctx context.Context, path string, f storagedriver.WalkFn) error {
+	path = drivers.FixUploadPath(path)
 	return storagedriver.WalkFallback(ctx, d, path, f)
 }
