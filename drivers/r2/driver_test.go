@@ -3,7 +3,6 @@ package r2
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -141,7 +140,7 @@ func (s *DriverTestSuite) TestStat() {
 	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&s3.ListObjectsV2Output{
 			Contents: []types.Object{{
-				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Key:          aws.String("test-path/x"),
 				Size:         aws.Int64(123),
 				LastModified: aws.Time(time.Now()),
 			}},
@@ -157,7 +156,7 @@ func (s *DriverTestSuite) TestList() {
 		Return(&s3.ListObjectsV2Output{
 			IsTruncated: aws.Bool(false),
 			Contents: []types.Object{{
-				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Key:          aws.String("test-path/x"),
 				Size:         aws.Int64(123),
 				LastModified: aws.Time(time.Now()),
 			}},
@@ -172,7 +171,7 @@ func (s *DriverTestSuite) TestMove() {
 	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&s3.ListObjectsV2Output{
 			Contents: []types.Object{{
-				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Key:          aws.String("test-path/x"),
 				Size:         aws.Int64(123),
 				LastModified: aws.Time(time.Now()),
 			}},
@@ -184,7 +183,7 @@ func (s *DriverTestSuite) TestMove() {
 	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&s3.ListObjectsV2Output{
 			Contents: []types.Object{{
-				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Key:          aws.String("test-path/x"),
 				Size:         aws.Int64(123),
 				LastModified: aws.Time(time.Now()),
 			}},
@@ -200,7 +199,7 @@ func (s *DriverTestSuite) TestDelete() {
 	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any()).
 		Return(&s3.ListObjectsV2Output{
 			Contents: []types.Object{{
-				Key: aws.String(fmt.Sprintf("test-path/x")),
+				Key: aws.String("test-path/x"),
 			}},
 		}, nil)
 	s.r2Client.EXPECT().DeleteObjects(gomock.Any(), gomock.Any()).Return(&s3.DeleteObjectsOutput{}, nil)
@@ -212,7 +211,7 @@ func (s *DriverTestSuite) TestWalk() {
 	s.r2Client.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&s3.ListObjectsV2Output{
 			Contents: []types.Object{{
-				Key:          aws.String(fmt.Sprintf("test-path/x")),
+				Key:          aws.String("test-path/x"),
 				Size:         aws.Int64(123),
 				LastModified: aws.Time(time.Now()),
 			}},
