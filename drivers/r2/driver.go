@@ -1240,7 +1240,7 @@ func (w *writer) flushPart() error {
 	// Check if the ready part is less than the chunk size
 	if len(w.readyPart) < int(w.driver.ChunkSize) {
 		// If there's enough in the pending part to fill the ready part up to the chunk size
-		if len(w.pendingPart) >= int(w.driver.ChunkSize)-len(w.readyPart) {
+		if len(w.pendingPart) + len(w.readyPart) >= int(w.driver.ChunkSize) {
 			fillSize := int(w.driver.ChunkSize) - len(w.readyPart)
 			w.readyPart = append(w.readyPart, w.pendingPart[:fillSize]...)
 			w.pendingPart = w.pendingPart[fillSize:]
