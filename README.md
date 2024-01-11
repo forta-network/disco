@@ -1,5 +1,5 @@
 # disco
-![coverage](https://img.shields.io/badge/coverage-57.7%25-yellow)
+![coverage](https://img.shields.io/badge/coverage-58.1%25-yellow)
 ![build](https://github.com/forta-network/disco/actions/workflows/build.yml/badge.svg)
 
 [OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md) conformant and Docker compatible **dis**tributed **co**ntainer registry, based on the awesome [Distribution](https://github.com/distribution/distribution) library and Kubo MFS API.
