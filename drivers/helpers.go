@@ -8,12 +8,12 @@ import (
 	"github.com/forta-network/disco/drivers/multidriver"
 )
 
-// FixUploadPath rewrites .../repository/<name>/_uploads to /disco-uploads to make things easier.
+// FixUploadPath rewrites .../repository/<name>/_uploads to another path to make things easier.
 func FixUploadPath(path string) string {
 	if !strings.Contains(path, "/_uploads") {
 		return path
 	}
-	newPath := "/disco-uploads"
+	newPath := "/docker/registry/v2/uploads"
 	var append bool
 	// append the segments after "_uploads"
 	for _, segment := range strings.Split(path, "/") {
